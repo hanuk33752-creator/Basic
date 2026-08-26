@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import './db.js';
 import packs from './routes/packs.js';
 import questions from './routes/questions.js';
+import upload from './routes/upload.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -12,10 +13,14 @@ const PORT = Number(process.env.PORT) || 4000;
 
 app.use(express.json({ limit: '10mb' }));
 
-app.get('/api/health', (req, res) => res.json({ ok: true }));
+app.get('/api/health', async (req, res) => {
+  const { isClaudeAvailable, MODEL } = await import('./services/claude.js');
+  res.json({ ok: true, claude_available: isClaudeAvailable(), model: MODEL });
+});
 
 app.use('/api/packs', packs);
 app.use('/api/questions', questions);
+app.use('/api/upload', upload);
 
 // 빌드된 프론트엔드를 함께 서빙 (npm run build 이후)
 const webDist = path.join(__dirname, '..', '..', 'web', 'dist');

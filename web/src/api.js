@@ -25,6 +25,14 @@ export const api = {
   activatePack: (packId) => request('POST', `/packs/${packId}/activate`),
   deletePack: (packId) => request('DELETE', `/packs/${packId}`),
 
+  // 문서 업로드 파이프라인
+  parseDocument: (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request('POST', '/upload/parse', form, true);
+  },
+  confirmCandidates: (packId, candidates) => request('POST', '/upload/confirm', { packId, candidates }),
+
   // 문제
   listQuestions: (packId) => request('GET', `/questions${packId ? `?packId=${packId}` : ''}`),
   getQuestion: (id) => request('GET', `/questions/${id}`),

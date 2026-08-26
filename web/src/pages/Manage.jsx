@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import api from '../api.js';
 import { usePack } from '../PackContext.jsx';
+import UploadPanel from '../components/UploadPanel.jsx';
 
 export default function Manage() {
   const { packs, activePack, refresh } = usePack();
@@ -109,6 +110,13 @@ export default function Manage() {
           </table>
         </div>
       )}
+
+      <h2>문제 추가</h2>
+      <UploadPanel
+        packId={activePack?.pack_id}
+        packName={activePack?.name}
+        onSaved={() => guard(loadQuestions)}
+      />
 
       <h2>등록된 문제 {activePack ? `(${activePack.name})` : ''}</h2>
       {questions.length === 0 ? (
