@@ -6,6 +6,7 @@ import './db.js';
 import packs from './routes/packs.js';
 import questions from './routes/questions.js';
 import upload from './routes/upload.js';
+import quiz from './routes/quiz.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -21,6 +22,7 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/packs', packs);
 app.use('/api/questions', questions);
 app.use('/api/upload', upload);
+app.use('/api', quiz);
 
 // 빌드된 프론트엔드를 함께 서빙 (npm run build 이후)
 const webDist = path.join(__dirname, '..', '..', 'web', 'dist');

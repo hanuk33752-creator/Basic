@@ -25,6 +25,11 @@ export const api = {
   activatePack: (packId) => request('POST', `/packs/${packId}/activate`),
   deletePack: (packId) => request('DELETE', `/packs/${packId}`),
 
+  // 출제·채점
+  startQuiz: (count, packId) =>
+    request('GET', `/quiz?count=${count}${packId ? `&packId=${packId}` : ''}`),
+  submitAnswers: (answers) => request('POST', '/submit', { answers }),
+
   // 문서 업로드 파이프라인
   parseDocument: (file) => {
     const form = new FormData();
