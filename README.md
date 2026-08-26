@@ -9,43 +9,38 @@
 
 **Node.js 22.5 이상**이 필요합니다 (DB로 내장 `node:sqlite` 를 씁니다).
 
-## 윈도우에서 쓰기 (권장)
+## 실행
 
-`scripts\windows` 폴더의 파일을 더블클릭하면 됩니다. PowerShell 을 열 필요도, 터미널을 켜둘 필요도 없습니다.
-
-| 파일 | 하는 일 |
-|---|---|
-| `start-app.bat` | 앱을 켜고 브라우저를 엽니다. 평소엔 이것만 누르세요. |
-| `stop-app.bat` | 앱을 끕니다. |
-| `autostart-on.bat` | 로그인하면 앱이 자동으로 켜지도록 등록합니다. |
-| `autostart-off.bat` | 자동 시작을 해제합니다. |
-| `troubleshoot.bat` | 앱이 안 켜질 때. 환경을 점검하고 서버를 창에 띄워 오류를 그대로 보여줍니다. |
-| `reinstall.bat` | 부품과 빌드를 지우고 처음부터 다시 만듭니다. 데이터와 `.env` 는 보존됩니다. |
-
-처음 한 번은 의존성 설치와 화면 빌드 때문에 몇 분 걸리고, 그 뒤로는 몇 초면 뜹니다.
-업데이트로 `package.json` 이나 화면 소스가 바뀌면 `start-app.bat` 이 알아서 다시 설치·빌드합니다.
-서버는 창 없이 백그라운드로 돌아갑니다. 바탕화면 바로가기를 만들려면
-`start-app.bat` 오른쪽 클릭 → 보내기 → 바탕 화면에 바로 가기 만들기.
-
-`autostart-on.bat` 을 등록해 두면 브라우저에서 http://localhost:4000 만 열면 됩니다.
-
-이 스크립트들은 포트 **4000** 을 기준으로 동작합니다. 서버 로그는 `server/data/server.log` 에 남습니다.
-
-## 직접 실행 (개발용)
+터미널(윈도우는 PowerShell)에서 프로젝트 폴더로 이동한 뒤:
 
 ```bash
-npm run setup        # 루트 / server / web 의존성 설치
-cp .env.example .env # ANTHROPIC_API_KEY 를 넣어주세요
-npm run dev          # 서버(4000) + 프론트(5173) 동시 실행, 코드 수정 시 자동 반영
+npm run setup   # 최초 1회, 그리고 업데이트로 package.json 이 바뀐 뒤에 한 번 더
+npm start       # 실행
+```
+
+`npm start` 는 화면이 준비돼 있지 않으면 알아서 빌드한 뒤 서버를 띄우고 브라우저를 엽니다.
+브라우저가 자동으로 안 열리면 직접 http://localhost:4000 으로 접속하세요.
+
+끌 때는 그 터미널에서 `Ctrl+C`. 앱을 쓰는 동안에는 터미널을 열어두세요.
+
+데이터는 `server/data/app.db` 파일 하나에 쌓입니다. 이 파일만 백업하면 문제은행과 오답노트가 보존됩니다.
+
+### 코드를 고치면서 쓸 때
+
+```bash
+npm run dev     # 서버(4000) + 프론트(5173), 저장하면 바로 반영
 ```
 
 브라우저에서 http://localhost:5173 접속.
 
-실사용 모드는 한 포트에서 화면까지 함께 서빙합니다:
+## API 키 설정
 
 ```bash
-npm run build && npm start   # http://localhost:4000
+cp .env.example .env
 ```
+
+`.env` 를 열어 `ANTHROPIC_API_KEY` 를 채웁니다. 키가 없으면 앱은 돌아가지만
+채점이 로컬 규칙(단어 대조)으로 동작합니다.
 
 ### 환경 변수
 
@@ -57,7 +52,7 @@ npm run build && npm start   # http://localhost:4000
 | `EXTRACT_CONCURRENCY` | 문서 파싱·키워드 추출 시 Claude 동시 호출 수. 기본 `4`. 429가 뜨면 낮추세요. |
 | `DB_PATH` | SQLite 파일 경로. 기본 `server/data/app.db` |
 | `TZ` | 오답노트 기간 필터 기준 시간대. 예 `Asia/Seoul` |
-| `OPEN_BROWSER` | `1` 이면 서버가 뜬 뒤 브라우저를 자동으로 엽니다 (실행 스크립트가 사용). |
+| `OPEN_BROWSER` | `0` 으로 두면 `npm start` 가 브라우저를 열지 않습니다. |
 
 프로젝트 루트의 `.env` 는 서버가 시작할 때 자동으로 읽습니다. 셸에 이미 설정된 값이 있으면 그쪽이 우선합니다.
 
@@ -161,7 +156,6 @@ node server/scripts/seed.js data/samples/수질환경기사_실기_샘플.txt �
 ## 프로젝트 구조
 
 ```
-scripts/windows/          윈도우용 실행·종료·자동시작 스크립트
 server/
   src/
     env.js              .env 로더 (다른 모듈보다 먼저 실행)
@@ -176,7 +170,10 @@ server/
       claude.js         Claude API 래퍼
       jobs.js           대량 업로드용 백그라운드 잡 + 동시성 제어
       workbook.js       엑셀 양식 생성 및 읽기
-  scripts/seed.js       문서를 팩으로 일괄 적재하는 CLI
+  scripts/
+    start.js            npm start 진입점 (필요하면 빌드 후 서버 실행)
+    seed.js             문서를 팩으로 일괄 적재하는 CLI
+    make-template.js    엑셀 양식 파일 생성
   test/                 채점 규칙 단위 테스트 + 전체 흐름 e2e 테스트
 web/
   src/pages/            홈 · 출제 개수 선택 · 문제 풀이 · 채점 결과 · 오답노트 · 문제 관리
