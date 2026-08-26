@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../api.js';
 import { usePack } from '../PackContext.jsx';
 import UploadPanel from '../components/UploadPanel.jsx';
@@ -7,6 +7,8 @@ export default function Manage() {
   const { packs, activePack, refresh } = usePack();
   const [newName, setNewName] = useState('');
   const [questions, setQuestions] = useState([]);
+  const [filter, setFilter] = useState('all'); // all | ready | incomplete
+  const [limit, setLimit] = useState(30);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -19,6 +21,16 @@ export default function Manage() {
   useEffect(() => {
     loadQuestions().catch((e) => setError(e.message));
   }, [loadQuestions]);
+
+  const incompleteCount = useMemo(
+    () => questions.filter((q) => q.keyword_groups.length === 0).length,
+    [questions]
+  );
+  const filtered = useMemo(() => {
+    if (filter === 'ready') return questions.filter((q) => q.keyword_groups.length > 0);
+    if (filter === 'incomplete') return questions.filter((q) => q.keyword_groups.length === 0);
+    return questions;
+  }, [questions, filter]);
 
   async function guard(fn) {
     setBusy(true);
@@ -68,6 +80,7 @@ export default function Manage() {
               <tr>
                 <th>이름</th>
                 <th className="num">문제 수</th>
+                <th className="num">출제 가능</th>
                 <th className="num">상태</th>
                 <th />
               </tr>
@@ -77,6 +90,12 @@ export default function Manage() {
                 <tr key={p.pack_id}>
                   <td>{p.name}</td>
                   <td className="num">{p.question_count}</td>
+                  <td className="num">
+                    {p.ready_count}
+                    {p.question_count > p.ready_count && (
+                      <span className="muted"> (-{p.question_count - p.ready_count})</span>
+                    )}
+                  </td>
                   <td className="num">
                     {p.is_active ? <span className="pack-chip">활성</span> : <span className="muted">대기</span>}
                   </td>
@@ -119,42 +138,97 @@ export default function Manage() {
       />
 
       <h2>등록된 문제 {activePack ? `(${activePack.name})` : ''}</h2>
-      {questions.length === 0 ? (
-        <div className="empty">등록된 문제가 없습니다.</div>
-      ) : (
-        questions.map((q) => (
-          <div className="card" key={q.question_id}>
-            <div className="q-meta">
-              #{q.question_id}
-              {q.year_round ? ` · ${q.year_round}` : ''}
-              {q.required_count ? ` · 요구 항목 ${q.required_count}개` : ' · 일반 서술형'}
-            </div>
-            <p className="q-text">{q.question_text}</p>
-            <div>
-              {q.keyword_groups.map((g) =>
-                g.is_flat ? (
-                  g.keywords.map((k) => <span className="tag" key={k}>{k}</span>)
-                ) : (
-                  <span className="tag" key={g.group_id}>
-                    {g.label || `항목 ${g.group_index + 1}`}: {g.keywords.join(', ')}
-                  </span>
-                )
-              )}
-            </div>
-            <div className="btn-row" style={{ marginTop: 10 }}>
-              <button
-                className="btn sm danger"
-                onClick={() => {
-                  if (confirm('이 문제를 삭제할까요?')) {
-                    guard(async () => { await api.deleteQuestion(q.question_id); await loadQuestions(); });
-                  }
-                }}
-              >
-                삭제
-              </button>
-            </div>
+
+      {incompleteCount > 0 && (
+        <div className="error">
+          채점 기준(키워드)을 만들지 못한 문제가 <strong>{incompleteCount}개</strong> 있습니다.
+          이 문제들은 랜덤 출제에서 자동으로 제외됩니다. 참고자료를 채워 다시 등록하거나 삭제해 주세요.
+          <div className="btn-row" style={{ marginTop: 8 }}>
+            <button
+              className="btn sm danger"
+              disabled={busy}
+              onClick={() => {
+                if (confirm(`채점 기준이 없는 문제 ${incompleteCount}개를 삭제할까요?`)) {
+                  guard(async () => {
+                    await api.deleteIncomplete(activePack.pack_id);
+                    await loadQuestions();
+                  });
+                }
+              }}
+            >
+              {incompleteCount}개 일괄 삭제
+            </button>
           </div>
-        ))
+        </div>
+      )}
+
+      {questions.length > 0 && (
+        <div className="filter-row">
+          {[
+            ['all', `전체 ${questions.length}`],
+            ['ready', `출제 가능 ${questions.length - incompleteCount}`],
+            ['incomplete', `채점 기준 없음 ${incompleteCount}`],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              className={`btn sm ${filter === key ? 'active' : ''}`}
+              onClick={() => { setFilter(key); setLimit(30); }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
+        <div className="empty">
+          {questions.length === 0 ? '등록된 문제가 없습니다.' : '해당하는 문제가 없습니다.'}
+        </div>
+      ) : (
+        <>
+          {filtered.slice(0, limit).map((q) => (
+            <div className="card" key={q.question_id}>
+              <div className="q-meta">
+                #{q.question_id}
+                {q.year_round ? ` · ${q.year_round}` : ''}
+                {q.required_count ? ` · 요구 항목 ${q.required_count}개` : ' · 일반 서술형'}
+                {q.keyword_groups.length === 0 && (
+                  <span className="tag miss" style={{ marginLeft: 8 }}>채점 기준 없음 · 출제 제외</span>
+                )}
+              </div>
+              <p className="q-text">{q.question_text}</p>
+              <div>
+                {q.keyword_groups.map((g) =>
+                  g.is_flat ? (
+                    g.keywords.map((k) => <span className="tag" key={k}>{k}</span>)
+                  ) : (
+                    <span className="tag" key={g.group_id}>
+                      {g.label || `항목 ${g.group_index + 1}`}: {g.keywords.join(', ')}
+                    </span>
+                  )
+                )}
+              </div>
+              <div className="btn-row" style={{ marginTop: 10 }}>
+                <button
+                  className="btn sm danger"
+                  onClick={() => {
+                    if (confirm('이 문제를 삭제할까요?')) {
+                      guard(async () => { await api.deleteQuestion(q.question_id); await loadQuestions(); });
+                    }
+                  }}
+                >
+                  삭제
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {filtered.length > limit && (
+            <button className="btn block" onClick={() => setLimit((n) => n + 50)}>
+              더 보기 ({filtered.length - limit}개 남음)
+            </button>
+          )}
+        </>
       )}
     </main>
   );

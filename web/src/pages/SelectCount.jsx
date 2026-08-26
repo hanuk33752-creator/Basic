@@ -6,13 +6,16 @@ const COUNTS = [1, 5, 10];
 export default function SelectCount() {
   const navigate = useNavigate();
   const { activePack } = usePack();
-  const available = activePack?.question_count ?? 0;
+  // 채점 기준이 있는 문제만 출제 대상이다.
+  const available = activePack?.ready_count ?? 0;
+  const excluded = (activePack?.question_count ?? 0) - available;
 
   return (
     <main className="page">
       <h1>몇 문제를 풀까요?</h1>
       <p className="sub">
-        {activePack ? `${activePack.name} · 등록된 문제 ${available}개` : '활성 팩이 없습니다.'}
+        {activePack ? `${activePack.name} · 출제 가능한 문제 ${available}개` : '활성 팩이 없습니다.'}
+        {excluded > 0 && ` · 채점 기준이 없어 제외된 문제 ${excluded}개`}
       </p>
 
       <div className="choice-grid">

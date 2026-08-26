@@ -135,3 +135,37 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
   .nav a { padding: 5px 8px; font-size: 13px; }
   .page { padding: 16px 12px 56px; }
 }
+
+/* 진행률 표시 */
+.bar { height: 8px; background: var(--border); border-radius: 999px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--primary); border-radius: 999px; transition: width 0.3s ease; }
+.bar-fill.indeterminate { width: 35%; animation: slide 1.2s ease-in-out infinite; }
+@keyframes slide {
+  0% { margin-left: -35%; }
+  100% { margin-left: 100%; }
+}
+
+/* 업로드 미리보기 목록 (수백 건을 접힌 행으로 표시) */
+.preview-list {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  max-height: 60vh; overflow-y: auto; background: var(--surface);
+}
+.preview-row { border-bottom: 1px solid var(--border); }
+.preview-row:last-child { border-bottom: none; }
+.preview-row.off { background: #fafafa; }
+.preview-row.off .preview-title { color: var(--muted); text-decoration: line-through; }
+.preview-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+.preview-title {
+  flex: 1; min-width: 0; text-align: left; background: none; border: none; padding: 0;
+  font: inherit; font-size: 14px; color: var(--text); cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.preview-title:hover { color: var(--primary); }
+.preview-badges { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.preview-badges .tag { margin: 0; }
+.preview-body { padding: 4px 10px 12px; border-top: 1px dashed var(--border); }
+
+@media (max-width: 560px) {
+  /* 좁은 화면에서는 N 배지만 접고, 출제 제외 경고는 남긴다. */
+  .preview-badges .tag:not(.miss) { display: none; }
+}

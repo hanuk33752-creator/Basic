@@ -1,11 +1,22 @@
 // DB 접근 계층. 라우터/서비스는 SQL 대신 이 함수들만 사용한다.
 import { all, get, run, tx } from './db.js';
 
+/**
+ * 출제 가능한 문제의 조건: 채점 기준(키워드가 든 그룹)이 최소 하나 있어야 한다.
+ * 참고자료가 비어 키워드를 못 뽑은 문제는 채점을 할 수 없으므로 랜덤 출제에서 제외한다.
+ */
+const GRADABLE = `EXISTS (
+  SELECT 1 FROM keyword_group g
+  WHERE g.question_id = q.question_id AND g.keywords <> '[]'
+)`;
+
 /* ── 자격증 팩 ────────────────────────────────────────────── */
 
 export function listPacks() {
   return all(`
-    SELECT p.*, (SELECT COUNT(*) FROM question q WHERE q.pack_id = p.pack_id) AS question_count
+    SELECT p.*,
+      (SELECT COUNT(*) FROM question q WHERE q.pack_id = p.pack_id) AS question_count,
+      (SELECT COUNT(*) FROM question q WHERE q.pack_id = p.pack_id AND ${GRADABLE}) AS ready_count
     FROM cert_pack p ORDER BY p.is_active DESC, p.created_at DESC`);
 }
 
@@ -68,13 +79,37 @@ export function getQuestion(questionId) {
   return q ? hydrate(q) : undefined;
 }
 
+/** 채점 기준이 있는 문제만 대상으로 랜덤 출제한다. */
 export function randomQuestions(packId, count) {
   const rows = all(
-    'SELECT * FROM question WHERE pack_id = ? ORDER BY RANDOM() LIMIT ?',
+    `SELECT * FROM question q WHERE q.pack_id = ? AND ${GRADABLE} ORDER BY RANDOM() LIMIT ?`,
     packId,
     count
   );
   return rows.map(hydrate);
+}
+
+/** 출제 가능한 문제 수 */
+export function countReady(packId) {
+  return get(`SELECT COUNT(*) AS c FROM question q WHERE q.pack_id = ? AND ${GRADABLE}`, packId).c;
+}
+
+/** 채점 기준이 없어 출제되지 않는 문제 목록 */
+export function listIncomplete(packId) {
+  return all(
+    `SELECT * FROM question q WHERE q.pack_id = ? AND NOT ${GRADABLE} ORDER BY q.question_id`,
+    packId
+  ).map(hydrate);
+}
+
+/** 채점 기준이 없는 문제를 일괄 삭제한다. */
+export function deleteIncomplete(packId) {
+  return run(
+    `DELETE FROM question WHERE question_id IN (
+       SELECT q.question_id FROM question q WHERE q.pack_id = ? AND NOT ${GRADABLE}
+     )`,
+    packId
+  ).changes;
 }
 
 function hydrate(q) {

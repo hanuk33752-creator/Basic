@@ -76,9 +76,38 @@ test('전체 흐름: 팩 생성 → 문제 등록 → 출제 → 채점 → 오�
     assert.equal(flat.keyword_groups[0].is_flat, true);
   });
 
+  await t.test('채점 기준이 없는 문제는 저장은 되지만 출제 대상에서 빠진다', async () => {
+    // 참고자료도 키워드도 없이 등록된 문제 (문서 파싱이 빈칸으로 끝난 경우)
+    await call('POST', '/questions', { questionText: '참고자료가 없어 채점할 수 없는 문제입니다.' });
+
+    const { packs } = await call('GET', '/packs');
+    const pack = packs.find((p) => p.name === '수질환경기사');
+    assert.equal(pack.question_count, 3);
+    assert.equal(pack.ready_count, 2, '채점 기준이 있는 문제만 출제 가능으로 센다');
+
+    // 100번 뽑아도 빈 문제는 절대 안 나와야 한다.
+    for (let i = 0; i < 30; i += 1) {
+      const quiz = await call('GET', '/quiz?count=10');
+      assert.equal(quiz.questions.length, 2);
+      assert.ok(
+        quiz.questions.every((q) => !q.question_text.includes('채점할 수 없는')),
+        '채점 기준 없는 문제가 출제되었다'
+      );
+    }
+
+    const { questions: incomplete } = await call('GET', '/questions/incomplete');
+    assert.equal(incomplete.length, 1);
+
+    const { deleted } = await call('DELETE', '/questions/incomplete');
+    assert.equal(deleted, 1);
+    const after = await call('GET', '/packs');
+    assert.equal(after.packs.find((p) => p.name === '수질환경기사').question_count, 2);
+  });
+
   await t.test('출제 응답에 채점 기준이 새지 않는다', async () => {
     const quiz = await call('GET', '/quiz?count=5');
     assert.equal(quiz.questions.length, 2, '등록된 문제가 부족하면 있는 만큼만 출제');
+    assert.equal(quiz.available, 2);
     for (const q of quiz.questions) {
       assert.equal(q.keyword_groups, undefined);
       assert.equal(q.references, undefined);

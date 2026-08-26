@@ -9,6 +9,20 @@ router.get('/', (req, res) => {
   res.json({ questions: repo.listQuestions(packId) });
 });
 
+/** 채점 기준이 없어 랜덤 출제에서 제외되는 문제들 */
+router.get('/incomplete', (req, res) => {
+  const packId = Number(req.query.packId) || repo.getActivePack()?.pack_id;
+  if (!packId) return res.json({ questions: [] });
+  res.json({ questions: repo.listIncomplete(packId) });
+});
+
+/** 채점 기준이 없는 문제 일괄 삭제 */
+router.delete('/incomplete', (req, res) => {
+  const packId = Number(req.query.packId) || repo.getActivePack()?.pack_id;
+  if (!packId) return res.status(400).json({ error: '자격증 팩이 없습니다.' });
+  res.json({ deleted: repo.deleteIncomplete(packId) });
+});
+
 router.get('/:questionId', (req, res) => {
   const q = repo.getQuestion(Number(req.params.questionId));
   if (!q) return res.status(404).json({ error: '문제를 찾을 수 없습니다.' });

@@ -23,7 +23,13 @@ router.get('/quiz', (req, res) => {
     required_count: q.required_count,
   }));
 
-  res.json({ pack: { pack_id: pack.pack_id, name: pack.name }, requested: count, questions });
+  res.json({
+    pack: { pack_id: pack.pack_id, name: pack.name },
+    requested: count,
+    // 채점 기준이 없는 문제는 출제 대상에서 빠지므로 그 수도 함께 알려준다.
+    available: repo.countReady(pack.pack_id),
+    questions,
+  });
 });
 
 /** 답안 일괄 제출 → 채점 → 시도 기록 저장 */

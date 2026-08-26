@@ -39,3 +39,18 @@ test('N이 있으면 항목별 그룹, 없으면 flat 키워드', () => {
   assert.equal(flat.length, 1);
   assert.equal(flat[0].label, null);
 });
+
+test('참고자료가 없으면 키워드를 만들지 않는다', async () => {
+  // 문제 본문으로 키워드를 지어내면 답안을 문제의 단어와 대조하게 되어 채점이 무의미해진다.
+  assert.deepEqual(localKeywords('', '원인을 3가지 서술하시오', 3), []);
+  assert.deepEqual(localKeywords('   ', '설명하시오', null), []);
+
+  const { buildKeywords } = await import('../src/services/extract.js');
+  const skipped = await buildKeywords({
+    question_text: '원인을 3가지 서술하시오',
+    source_text: '',
+    required_count: 3,
+  });
+  assert.equal(skipped.source, 'skipped');
+  assert.deepEqual(skipped.groups, [], '채점 기준 없이 저장되어 출제에서 제외된다');
+});

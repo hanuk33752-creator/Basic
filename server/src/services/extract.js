@@ -1,5 +1,15 @@
 import { askJson, isClaudeAvailable } from './claude.js';
 import { detectRequiredCount } from './parse.js';
+import { mapWithConcurrency } from './jobs.js';
+
+// 한 번에 처리할 수 있는 문제 수 상한. 300문제 일괄 등록을 여유 있게 담는다.
+export const MAX_CANDIDATES = 500;
+
+// Claude 호출 동시 실행 수. 너무 높이면 429(rate limit)를 맞는다.
+const CONCURRENCY = Number(process.env.EXTRACT_CONCURRENCY) || 4;
+
+// 출력이 입력 원문을 거의 그대로 담으므로 청크를 작게 잡고 출력 토큰을 넉넉히 준다.
+const CHUNK_CHARS = 7000;
 
 /* ────────────────────────────────────────────────────────────
  * 1차: 문서 → 문제 후보 + 참고자료 분리 (스펙 4장 2단계)
@@ -37,32 +47,62 @@ const CANDIDATE_SYSTEM = `너는 자격증 실기(서술형) 기출 문서를 �
 - 계산 문제, 단답형, 목차·표지 같은 비문제 텍스트는 제외하고 서술형만 추출한다.
 - 문서에 없는 내용을 만들어내지 않는다.`;
 
-/** 문서 텍스트에서 문제 후보를 뽑는다. Claude 키가 없으면 로컬 휴리스틱을 쓴다. */
-export async function proposeQuestions(text) {
+/**
+ * 문서 텍스트에서 문제 후보를 뽑는다. Claude 키가 없으면 로컬 휴리스틱을 쓴다.
+ * 문서를 청크로 나눠 병렬 처리하고, onProgress(완료 청크 수, 전체 청크 수)로 진행률을 알린다.
+ */
+export async function proposeQuestions(text, { onProgress } = {}) {
   if (!isClaudeAvailable()) {
-    return { source: 'local', candidates: localSplit(text) };
+    const candidates = localSplit(text);
+    onProgress?.(1, 1);
+    return { source: 'local', candidates: candidates.slice(0, MAX_CANDIDATES), truncated: candidates.length > MAX_CANDIDATES };
   }
-  const chunks = chunkText(text, 14000);
-  const candidates = [];
-  for (const chunk of chunks) {
-    const result = await askJson({
-      system: CANDIDATE_SYSTEM,
-      prompt: `다음 문서에서 서술형 문제와 참고자료를 추출해라.\n\n<document>\n${chunk}\n</document>`,
-      schema: CANDIDATE_SCHEMA,
-      toolName: 'extract_questions',
-    });
-    for (const q of result.questions ?? []) {
-      if (q.question_text?.trim()) {
-        candidates.push({
-          question_text: q.question_text.trim(),
-          year_round: q.year_round?.trim() || null,
-          source_text: q.source_text?.trim() || '',
-          required_count: detectRequiredCount(q.question_text),
-        });
-      }
+
+  const chunks = chunkText(text, CHUNK_CHARS);
+  let done = 0;
+  onProgress?.(0, chunks.length);
+
+  const results = await mapWithConcurrency(
+    chunks,
+    CONCURRENCY,
+    (chunk) =>
+      askJson({
+        system: CANDIDATE_SYSTEM,
+        prompt: `다음 문서에서 서술형 문제와 참고자료를 추출해라.\n\n<document>\n${chunk}\n</document>`,
+        schema: CANDIDATE_SCHEMA,
+        toolName: 'extract_questions',
+        maxTokens: 16000,
+      }),
+    () => {
+      done += 1;
+      onProgress?.(done, chunks.length);
     }
-  }
-  return { source: 'claude', candidates };
+  );
+
+  const candidates = [];
+  const failures = [];
+  results.forEach((r, i) => {
+    if (!r.ok) {
+      failures.push({ chunk: i + 1, error: r.error?.message ?? String(r.error) });
+      return;
+    }
+    for (const q of r.value.questions ?? []) {
+      if (!q.question_text?.trim()) continue;
+      candidates.push({
+        question_text: q.question_text.trim(),
+        year_round: q.year_round?.trim() || null,
+        source_text: q.source_text?.trim() || '',
+        required_count: detectRequiredCount(q.question_text),
+      });
+    }
+  });
+
+  return {
+    source: 'claude',
+    candidates: candidates.slice(0, MAX_CANDIDATES),
+    truncated: candidates.length > MAX_CANDIDATES,
+    failures,
+  };
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -109,9 +149,18 @@ const KEYWORD_SYSTEM = `너는 서술형 답안 채점용 키워드를 설계한
   (채점은 의미 기반으로 이뤄진다).
 - 조사·서술어가 아닌 핵심 명사구를 쓴다.`;
 
-/** 문제 1건에 대한 키워드 그룹을 만든다. */
+/**
+ * 문제 1건에 대한 키워드 그룹을 만든다.
+ *
+ * 참고자료가 비어 있으면 키워드를 만들지 않는다. 문제 본문만 보고 키워드를 지어내면
+ * 답안을 "문제의 단어"와 대조하게 되어 채점이 무의미해지기 때문이다.
+ * 이런 문제는 그룹 없이 저장되어 랜덤 출제에서 제외되고, 문제 관리 화면에서 보완할 수 있다.
+ */
 export async function buildKeywords({ question_text, source_text, required_count }) {
   const n = required_count ?? detectRequiredCount(question_text);
+  if (!(source_text ?? '').trim()) {
+    return { source: 'skipped', required_count: n, groups: [] };
+  }
   if (!isClaudeAvailable()) {
     return { source: 'local', required_count: n, groups: localKeywords(source_text, question_text, n) };
   }
@@ -119,7 +168,7 @@ export async function buildKeywords({ question_text, source_text, required_count
     system: KEYWORD_SYSTEM,
     prompt:
       `<question>\n${question_text}\n</question>\n\n` +
-      `<reference>\n${source_text || '(참고자료 없음 — 문제 본문에서 추론)'}\n</reference>\n\n` +
+      `<reference>\n${source_text}\n</reference>\n\n` +
       `참고: 문제 본문에서 정규식으로 추출한 요구 항목 수는 ${n ?? '없음'} 이다. 판단이 다르면 네 판단을 우선한다.`,
     schema: KEYWORD_SCHEMA,
     toolName: 'build_keywords',
@@ -142,7 +191,8 @@ export async function buildKeywords({ question_text, source_text, required_count
  * ──────────────────────────────────────────────────────────── */
 
 const QUESTION_ENDINGS = /(하시오|하라|쓰시오|서술하시오|설명하시오|구하시오|기술하시오|답하시오)\s*[.?]?\s*$/;
-const NUMBERING = /^\s*(?:\[?\d{1,2}[\].)]|문제\s*\d{1,2}[.)]?|Q\s*\d{1,2}[.)]?)\s*/;
+// 문항 번호는 세 자리까지 인식한다 (300문제 문서 대응). 연도(2023.) 같은 네 자리는 걸리지 않는다.
+const NUMBERING = /^\s*(?:\[?\d{1,3}[\].)]|문제\s*\d{1,3}[.)]?|Q\s*\d{1,3}[.)]?)\s*/;
 
 /** 번호 매김을 기준으로 문서를 문제 단위로 쪼개는 휴리스틱. */
 export function localSplit(text) {
@@ -199,7 +249,8 @@ const JOSA = /(?:으로서|으로써|에서의|에게|에서|으로|이라|과�
 
 /** 참고자료에서 키워드를 뽑는 단순 폴백. 항목 구분은 줄/불릿 기준. */
 export function localKeywords(sourceText = '', questionText = '', n = null) {
-  const base = (sourceText || questionText || '').trim();
+  // 채점 기준은 참고자료에서만 뽑는다. 문제 본문으로 대체하지 않는다.
+  const base = (sourceText ?? '').trim();
   if (!base) return [];
 
   if (n) {
