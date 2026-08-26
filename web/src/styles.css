@@ -169,3 +169,12 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
   /* 좁은 화면에서는 N 배지만 접고, 출제 제외 경고는 남긴다. */
   .preview-badges .tag:not(.miss) { display: none; }
 }
+
+/* 상단 메뉴의 종료 버튼 — 눈에 띄되 오조작하지 않도록 살짝 떨어뜨린다. */
+.nav-stop {
+  appearance: none; border: 1px solid var(--border); background: var(--surface);
+  color: var(--muted); font: inherit; font-size: 14px; padding: 6px 12px;
+  border-radius: 8px; cursor: pointer; margin-left: 8px;
+}
+.nav-stop:hover:not(:disabled) { border-color: var(--bad); color: var(--bad); }
+.nav-stop:disabled { opacity: 0.5; cursor: not-allowed; }

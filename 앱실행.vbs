@@ -13,6 +13,16 @@ sh.CurrentDirectory = appRoot
 dataDir = fso.BuildPath(appRoot, "server\data")
 logPath = fso.BuildPath(dataDir, "launch.log")
 
+' 이 스크립트는 앱 폴더 안에 있어야 한다. 바탕화면에는 '바로 가기'를 만들어야 한다.
+If Not fso.FileExists(fso.BuildPath(appRoot, "package.json")) Then
+  MsgBox "앱 폴더를 찾지 못했습니다." & vbCrLf & vbCrLf & _
+         "이 파일은 앱 폴더 안에 그대로 두어야 합니다." & vbCrLf & _
+         "바탕화면에 두시려면 파일을 옮기지 마시고," & vbCrLf & _
+         "오른쪽 클릭 - [보내기] - [바탕 화면에 바로 가기 만들기] 를 쓰세요." & vbCrLf & vbCrLf & _
+         "현재 위치: " & appRoot, vbExclamation, "실기 서술형 연습"
+  WScript.Quit 1
+End If
+
 If Not fso.FolderExists(dataDir) Then fso.CreateFolder dataDir
 
 ' 이미 떠 있으면 창만 연다.

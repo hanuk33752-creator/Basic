@@ -19,6 +19,16 @@ async function request(method, url, body, isForm = false) {
 export const api = {
   health: () => request('GET', '/health'),
 
+  /** 앱 종료. 커스텀 헤더는 다른 사이트가 이 주소를 부르지 못하게 하는 장치다. */
+  shutdown: async () => {
+    const res = await fetch(`${BASE}/shutdown`, {
+      method: 'POST',
+      headers: { 'x-app-shutdown': '1' },
+    });
+    if (!res.ok) throw new Error('종료 요청이 거부되었습니다.');
+    return res.json();
+  },
+
   // 자격증 팩
   listPacks: () => request('GET', '/packs'),
   createPack: (name, activate) => request('POST', '/packs', { name, activate }),

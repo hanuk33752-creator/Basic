@@ -7,6 +7,13 @@ Dim fso, appRoot, wmi, processes, process, killed, commandLine
 Set fso = CreateObject("Scripting.FileSystemObject")
 appRoot = fso.GetParentFolderName(WScript.ScriptFullName)
 
+If Not fso.FileExists(fso.BuildPath(appRoot, "package.json")) Then
+  MsgBox "앱 폴더를 찾지 못했습니다." & vbCrLf & _
+         "이 파일은 앱 폴더 안에 그대로 두고, 바탕화면에는 바로 가기를 만들어 주세요.", _
+         vbExclamation, "실기 서술형 연습"
+  WScript.Quit 1
+End If
+
 killed = 0
 On Error Resume Next
 Set wmi = GetObject("winmgmts:\\.\root\cimv2")

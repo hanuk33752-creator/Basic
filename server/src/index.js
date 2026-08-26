@@ -22,6 +22,23 @@ app.get('/api/health', async (req, res) => {
   res.json({ ok: true, claude_available: isClaudeAvailable(), model: MODEL });
 });
 
+/**
+ * 앱 종료. 화면의 종료 버튼이 부른다.
+ * 커스텀 헤더를 요구해 다른 사이트가 브라우저를 통해 이 주소를 부르는 것을 막는다.
+ */
+app.post('/api/shutdown', (req, res) => {
+  if (req.get('x-app-shutdown') !== '1') {
+    return res.status(403).json({ error: '잘못된 종료 요청입니다.' });
+  }
+  res.json({ ok: true });
+  console.log('[server] 종료 요청을 받았습니다.');
+  setTimeout(() => {
+    server.close(() => process.exit(0));
+    // 남은 연결 때문에 close 가 지연되어도 확실히 끝낸다.
+    setTimeout(() => process.exit(0), 1500).unref();
+  }, 100);
+});
+
 app.use('/api/packs', packs);
 app.use('/api/questions', questions);
 app.use('/api/upload', upload);
@@ -43,7 +60,7 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ error: err.message || '서버 오류' });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
   console.log(`[server] ${url}`);
   // 바로가기로 실행할 때 서버가 실제로 뜬 다음 브라우저를 연다.
