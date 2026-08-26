@@ -47,7 +47,7 @@ app.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
   console.log(`[server] ${url}`);
   // 바로가기로 실행할 때 서버가 실제로 뜬 다음 브라우저를 연다.
-  if (process.env.OPEN_BROWSER === '1') openBrowser(url);
+  if ((process.env.OPEN_BROWSER ?? '').trim() === '1') openBrowser(url);
 });
 
 function openBrowser(url) {

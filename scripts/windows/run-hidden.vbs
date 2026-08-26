@@ -1,5 +1,5 @@
 ' 콘솔 창 없이 서버를 띄운다. start-app.bat 과 자동 시작 등록에서 함께 쓴다.
-' 인자로 open 을 주면 서버가 준비된 뒤 브라우저까지 연다.
+' 브라우저는 start-app.bat 이 서버가 실제로 뜬 것을 확인한 뒤 직접 연다.
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set sh = CreateObject("WScript.Shell")
 
@@ -7,10 +7,6 @@ Set sh = CreateObject("WScript.Shell")
 appRoot = fso.GetParentFolderName(fso.GetParentFolderName(fso.GetParentFolderName(WScript.ScriptFullName)))
 sh.CurrentDirectory = appRoot
 
-openBrowser = "0"
-If WScript.Arguments.Count > 0 Then
-  If LCase(WScript.Arguments(0)) = "open" Then openBrowser = "1"
-End If
-
 ' 0 = 창 숨김, False = 종료를 기다리지 않음
-sh.Run "cmd /c set OPEN_BROWSER=" & openBrowser & " && node server\src\index.js", 0, False
+' 오류를 추적할 수 있도록 로그를 남긴다.
+sh.Run "cmd /c node server\src\index.js > server\data\server.log 2>&1", 0, False
