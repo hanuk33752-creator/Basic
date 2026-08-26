@@ -101,6 +101,7 @@ label.field > * { margin-top: 5px; }
 .tag {
   display: inline-block; font-size: 12px; padding: 3px 9px; border-radius: 999px;
   border: 1px solid var(--border); margin: 0 6px 6px 0; background: var(--bg);
+  max-width: 100%; overflow-wrap: anywhere;
 }
 .tag.hit { background: #ecfdf3; border-color: #bbf7d0; color: #15803d; }
 .tag.miss { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
@@ -108,7 +109,7 @@ label.field > * { margin-top: 5px; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); }
 th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: none; }
-td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .muted { color: var(--muted); font-size: 13px; }
 .empty { text-align: center; color: var(--muted); padding: 36px 12px; }

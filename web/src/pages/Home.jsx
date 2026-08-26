@@ -4,7 +4,6 @@ import { usePack } from '../PackContext.jsx';
 export default function Home() {
   const { activePack, loading } = usePack();
   const navigate = useNavigate();
-  const ready = !!activePack && activePack.question_count !== 0;
 
   return (
     <main className="page">
@@ -13,7 +12,7 @@ export default function Home() {
         {loading
           ? '불러오는 중…'
           : activePack
-            ? `현재 활성 팩: ${activePack.name}`
+            ? `현재 활성 팩: ${activePack.name} · 문제 ${activePack.question_count}개`
             : '아직 자격증 팩이 없습니다. 문제 관리에서 먼저 등록해 주세요.'}
       </p>
 
@@ -24,7 +23,11 @@ export default function Home() {
       )}
 
       <div className="choice-grid">
-        <button className="choice" onClick={() => navigate('/start')} disabled={!activePack}>
+        <button
+          className="choice"
+          onClick={() => navigate('/start')}
+          disabled={!activePack || activePack.question_count === 0}
+        >
           <span className="big">✏️</span>
           <span className="label">문제 풀기</span>
         </button>

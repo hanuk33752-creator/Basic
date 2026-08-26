@@ -4,7 +4,9 @@ import * as repo from '../repo.js';
 const router = Router();
 
 router.get('/', (req, res) => {
-  res.json({ packs: repo.listPacks(), active: repo.getActivePack() ?? null });
+  const packs = repo.listPacks();
+  // active 도 question_count 가 붙은 목록 항목을 그대로 돌려준다.
+  res.json({ packs, active: packs.find((p) => p.is_active) ?? null });
 });
 
 router.post('/', (req, res) => {

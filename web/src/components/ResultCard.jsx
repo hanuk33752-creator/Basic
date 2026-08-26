@@ -1,3 +1,6 @@
+const LABEL_LIMIT = 44;
+const shorten = (text = '') => (text.length > LABEL_LIMIT ? `${text.slice(0, LABEL_LIMIT)}…` : text);
+
 export const VERDICT_LABEL = { O: 'O 정답', TRIANGLE: '△ 부분정답', X: 'X 오답' };
 export const VERDICT_MARK = { O: 'O', TRIANGLE: '△', X: 'X' };
 
@@ -46,8 +49,8 @@ export default function ResultCard({ result, index, total }) {
           <span className="muted">없음</span>
         ) : (
           result.matched_groups.map((g, i) => (
-            <span className="tag hit" key={`m${i}`}>
-              {g.label}
+            <span className="tag hit" key={`m${i}`} title={g.label}>
+              {shorten(g.label)}
               {isGroup && g.keywords?.length ? ` (${g.keywords.join(', ')})` : ''}
             </span>
           ))
@@ -64,8 +67,8 @@ export default function ResultCard({ result, index, total }) {
           <span className="muted">없음</span>
         ) : (
           result.missing_groups.map((g, i) => (
-            <span className="tag miss" key={`x${i}`}>
-              {g.label}
+            <span className="tag miss" key={`x${i}`} title={g.label}>
+              {shorten(g.label)}
               {isGroup && g.keywords?.length ? ` (${g.keywords.join(', ')})` : ''}
             </span>
           ))
