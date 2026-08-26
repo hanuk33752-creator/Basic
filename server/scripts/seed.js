@@ -4,6 +4,7 @@
  *   node server/scripts/seed.js <문서경로> [팩이름]
  * 팩 이름을 생략하면 파일명에서 유추한다.
  */
+import '../src/env.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as repo from '../src/repo.js';

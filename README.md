@@ -7,17 +7,36 @@
 - 화면형 웹 UI (모바일 브라우저 대응)
 - 데이터는 SQLite 파일 하나에 영구 저장
 
-## 빠른 시작
+**Node.js 22.5 이상**이 필요합니다 (DB로 내장 `node:sqlite` 를 씁니다).
+
+## 윈도우에서 쓰기 (권장)
+
+`scripts\windows` 폴더의 파일을 더블클릭하면 됩니다. PowerShell 을 열 필요도, 터미널을 켜둘 필요도 없습니다.
+
+| 파일 | 하는 일 |
+|---|---|
+| `start-app.bat` | 앱을 켜고 브라우저를 엽니다. 평소엔 이것만 누르세요. |
+| `stop-app.bat` | 앱을 끕니다. |
+| `autostart-on.bat` | 로그인하면 앱이 자동으로 켜지도록 등록합니다. |
+| `autostart-off.bat` | 자동 시작을 해제합니다. |
+
+처음 한 번은 의존성 설치와 화면 빌드 때문에 몇 분 걸리고, 그 뒤로는 몇 초면 뜹니다.
+서버는 창 없이 백그라운드로 돌아갑니다. 바탕화면 바로가기를 만들려면
+`start-app.bat` 오른쪽 클릭 → 보내기 → 바탕 화면에 바로 가기 만들기.
+
+`autostart-on.bat` 을 등록해 두면 브라우저에서 http://localhost:4000 만 열면 됩니다.
+
+## 직접 실행 (개발용)
 
 ```bash
 npm run setup        # 루트 / server / web 의존성 설치
 cp .env.example .env # ANTHROPIC_API_KEY 를 넣어주세요
-npm run dev          # 서버(4000) + 프론트(5173) 동시 실행
+npm run dev          # 서버(4000) + 프론트(5173) 동시 실행, 코드 수정 시 자동 반영
 ```
 
 브라우저에서 http://localhost:5173 접속.
 
-배포용으로 한 포트에서 돌리려면:
+실사용 모드는 한 포트에서 화면까지 함께 서빙합니다:
 
 ```bash
 npm run build && npm start   # http://localhost:4000
@@ -33,6 +52,9 @@ npm run build && npm start   # http://localhost:4000
 | `EXTRACT_CONCURRENCY` | 문서 파싱·키워드 추출 시 Claude 동시 호출 수. 기본 `4`. 429가 뜨면 낮추세요. |
 | `DB_PATH` | SQLite 파일 경로. 기본 `server/data/app.db` |
 | `TZ` | 오답노트 기간 필터 기준 시간대. 예 `Asia/Seoul` |
+| `OPEN_BROWSER` | `1` 이면 서버가 뜬 뒤 브라우저를 자동으로 엽니다 (실행 스크립트가 사용). |
+
+프로젝트 루트의 `.env` 는 서버가 시작할 때 자동으로 읽습니다. 셸에 이미 설정된 값이 있으면 그쪽이 우선합니다.
 
 ## 사용 흐름
 
@@ -134,8 +156,10 @@ node server/scripts/seed.js data/samples/수질환경기사_실기_샘플.txt �
 ## 프로젝트 구조
 
 ```
+scripts/windows/          윈도우용 실행·종료·자동시작 스크립트
 server/
   src/
+    env.js              .env 로더 (다른 모듈보다 먼저 실행)
     schema.sql          DB 스키마 (팩·문제·참고자료·키워드그룹·시도기록)
     db.js               node:sqlite 래퍼 (네이티브 의존성 없음)
     repo.js             DB 접근 계층
