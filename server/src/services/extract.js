@@ -24,13 +24,12 @@ const CANDIDATE_SCHEMA = {
         type: 'object',
         properties: {
           question_text: { type: 'string', description: '문제 본문 전체. 발문을 그대로 옮긴다.' },
-          year_round: { type: 'string', description: '연도/회차 (예: 2023년 1회). 없으면 빈 문자열.' },
           source_text: {
             type: 'string',
             description: '이 문제의 정답·해설에 해당하는 참고자료 원문 발췌. 없으면 빈 문자열.',
           },
         },
-        required: ['question_text', 'year_round', 'source_text'],
+        required: ['question_text', 'source_text'],
       },
     },
   },
@@ -90,7 +89,6 @@ export async function proposeQuestions(text, { onProgress } = {}) {
       if (!q.question_text?.trim()) continue;
       candidates.push({
         question_text: q.question_text.trim(),
-        year_round: q.year_round?.trim() || null,
         source_text: q.source_text?.trim() || '',
         required_count: detectRequiredCount(q.question_text),
       });
@@ -217,7 +215,6 @@ export function localSplit(text) {
       const { question, reference } = splitQuestionAndReference(joined);
       return {
         question_text: question,
-        year_round: null,
         source_text: reference,
         required_count: detectRequiredCount(question),
       };

@@ -35,11 +35,18 @@ export default function ResultCard({ result, index, total }) {
       <div className="muted" style={{ marginBottom: 8 }}>
         {isGroup
           ? `요구 항목 ${result.required_count}개 · 인정된 항목 ${result.credited_count}개` +
-            (result.matched_count > result.required_count
-              ? ` (${result.matched_count}개 맞췄으나 ${result.required_count}개까지만 인정)`
+            (result.matched_count > result.credited_count
+              ? ` (${result.matched_count}개 맞췄으나 ${result.credited_count}개까지만 인정)`
               : '')
           : `전체 키워드 ${result.total_candidates}개 · 매칭 ${result.matched_count}개`}
       </div>
+
+      {result.missing_required > 0 && (
+        <div className="error">
+          반드시 답해야 하는 <strong>필수 항목 {result.missing_required}개</strong>가 빠졌습니다.
+          아래 ★ 표시된 항목입니다.
+        </div>
+      )}
 
       <div style={{ marginBottom: 6 }}>
         <div className="muted" style={{ marginBottom: 4 }}>
@@ -50,6 +57,7 @@ export default function ResultCard({ result, index, total }) {
         ) : (
           result.matched_groups.map((g, i) => (
             <span className="tag hit" key={`m${i}`} title={g.label}>
+              {g.is_required && '★ '}
               {shorten(g.label)}
               {isGroup && g.keywords?.length ? ` (${g.keywords.join(', ')})` : ''}
             </span>
@@ -68,6 +76,7 @@ export default function ResultCard({ result, index, total }) {
         ) : (
           result.missing_groups.map((g, i) => (
             <span className="tag miss" key={`x${i}`} title={g.label}>
+              {g.is_required && '★ '}
               {shorten(g.label)}
               {isGroup && g.keywords?.length ? ` (${g.keywords.join(', ')})` : ''}
             </span>

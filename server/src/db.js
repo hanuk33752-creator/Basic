@@ -12,6 +12,19 @@ export const db = new DatabaseSync(dbPath);
 
 const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
 db.exec(schema);
+migrate();
+
+/** 이미 만들어진 DB에 뒤늦게 추가된 열을 채워 넣는다. (CREATE TABLE IF NOT EXISTS 로는 안 붙으므로) */
+function migrate() {
+  const added = [['keyword_group', 'is_required', 'INTEGER NOT NULL DEFAULT 0']];
+  for (const [table, column, definition] of added) {
+    const columns = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+    if (!columns.includes(column)) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      console.log(`[db] ${table}.${column} 열을 추가했습니다.`);
+    }
+  }
+}
 
 /** SELECT 다건 */
 export function all(sql, ...params) {

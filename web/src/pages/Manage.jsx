@@ -202,7 +202,8 @@ export default function Manage() {
                   g.is_flat ? (
                     g.keywords.map((k) => <span className="tag" key={k}>{k}</span>)
                   ) : (
-                    <span className="tag" key={g.group_id}>
+                    <span className={`tag${g.is_required ? ' hit' : ''}`} key={g.group_id}>
+                      {g.is_required && '★ '}
                       {g.label || `항목 ${g.group_index + 1}`}: {g.keywords.join(', ')}
                     </span>
                   )

@@ -21,12 +21,12 @@ const COLUMNS = [
       '여러 항목을 적을 때는 셀 안에서 Alt+Enter 로 줄을 바꾸세요. 쉼표·슬래시는 구분자로 쓰지 마세요.',
   },
   { key: 'required', header: '요구항목수', width: 12, hint: '선택. "3가지 서술" 같은 문제의 3. 비우면 문제 본문에서 자동 인식합니다.' },
-  { key: 'year', header: '연도회차', width: 14, hint: '선택. 예) 2023년 1회' },
 ];
 
 const ITEM_HINT =
-  '선택. "n가지" 문제에서 정답으로 인정할 항목을 하나씩 나눠 적습니다. ' +
-  '채우면 이 항목들이 그대로 채점 기준이 되고, 비우면 모범답안에서 AI가 자동 추출합니다.';
+  '선택. "n가지" 문제에서 정답으로 인정할 항목을 하나씩 나눠 적습니다.\n' +
+  '채우면 이 항목들이 그대로 채점 기준이 되고, 비우면 모범답안에서 AI가 자동 추출합니다.\n' +
+  '항목 앞에 *를 붙이면 필수 항목이 되어 반드시 답안에 있어야 합니다. 예) *정의: 조류가 과다 번식하는 현상';
 
 /** 헤더 이름 → 내부 키. 표기 흔들림을 흡수한다. */
 const ALIASES = {
@@ -34,7 +34,6 @@ const ALIASES = {
   question: ['문제', '문제본문', '문항', '발문', 'question'],
   answer: ['모범답안', '정답', '참고자료', '해설', '풀이', '답', 'answer'],
   required: ['요구항목수', '항목수', '요구개수', '가지수', 'n', 'required'],
-  year: ['연도회차', '연도/회차', '연도', '회차', '출제연도', 'year'],
 };
 
 const norm = (v) => String(v ?? '').replace(/\s+/g, '').toLowerCase();
@@ -90,23 +89,30 @@ export async function readQuestionWorkbook(buffer) {
     if (isExampleRow(noText, questionText)) continue;
 
     const items = header.items
-      .map(({ col }) => cellText(row, col))
-      .filter(Boolean);
+      .map(({ col }) => parseItem(cellText(row, col)))
+      .filter((item) => item.label);
 
     const requiredRaw = cellText(row, header.map.required);
-    const required =
+    const explicitRequired =
       requiredRaw && Number.isFinite(Number(requiredRaw)) && Number(requiredRaw) >= 1
         ? Number(requiredRaw)
-        : detectRequiredCount(questionText);
+        : null;
+    const hasRequiredItem = items.some((item) => item.is_required);
+    // 필수 표시(*)를 썼는데 요구항목수도 "n가지"도 없으면 적어둔 항목 전부를 요구 항목으로 본다.
+    const required =
+      explicitRequired ?? detectRequiredCount(questionText) ?? (hasRequiredItem ? items.length : null);
 
     candidates.push({
       question_text: questionText,
-      year_round: cellText(row, header.map.year) || null,
       source_text: answerText || itemsAsSource(items),
       required_count: required,
       required_count_locked: !!requiredRaw,
       // 항목 열을 채웠으면 AI 추출을 건너뛰고 이걸 그대로 채점 기준으로 쓴다.
-      groups: items.map((text) => ({ label: text, keywords: keywordsFromText(text, 4) })),
+      groups: items.map((item) => ({
+        label: item.label,
+        keywords: keywordsFromText(item.label, 4),
+        is_required: item.is_required,
+      })),
     });
   }
 
@@ -158,8 +164,15 @@ function isExampleRow(noText, questionText) {
   return /^예시/.test(noText) || /^\(예시\)/.test(questionText);
 }
 
+/** 항목 셀을 읽는다. 앞의 *(또는 ＊)는 '필수 항목' 표시이며 라벨에서 떼어낸다. */
+function parseItem(raw) {
+  const text = (raw ?? '').trim();
+  const marked = /^[*＊]\s*/.test(text);
+  return { label: text.replace(/^[*＊]\s*/, '').trim(), is_required: marked };
+}
+
 function itemsAsSource(items) {
-  return items.length ? items.map((t, i) => `${i + 1}. ${t}`).join('\n') : '';
+  return items.length ? items.map((item, i) => `${i + 1}. ${item.label}`).join('\n') : '';
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -173,7 +186,6 @@ const EXAMPLES = [
     answer:
       '사상성 미생물의 과다 증식이 대표적인 원인이다.\n폭기조 내 용존산소(DO)가 부족하면 사상균이 우점한다.\n유입수의 F/M비가 지나치게 낮거나 높을 때 침강성이 나빠진다.\n질소·인 등 영양염류의 불균형도 벌킹을 유발한다.',
     required: 3,
-    year: '2023년 1회',
     items: [
       '사상성 미생물의 과다 증식',
       '폭기조 용존산소(DO) 부족',
@@ -188,8 +200,23 @@ const EXAMPLES = [
     answer:
       '최적 응집제 주입량과 최적 pH를 실험적으로 결정하기 위한 시험이다. 교반 강도와 시간을 달리하며 플록 형성 상태와 상등수 탁도를 관찰해 응집 조건을 도출한다.',
     required: '',
-    year: '',
     items: ['', '', '', '', ''],
+  },
+  {
+    no: '예시3',
+    question: '부영양화의 정의를 쓰고 방지대책을 3가지 서술하시오.',
+    answer:
+      '부영양화란 질소·인 등 영양염류가 유입되어 조류가 과다 번식하고 수질이 악화되는 현상이다.\n' +
+      '고도처리로 질소·인을 제거한다.\n무린세제 사용을 확대하고 비점오염원을 관리한다.\n' +
+      '호소 바닥의 저니토를 준설해 내부부하를 제거한다.\n황산동 등 살조제를 살포하거나 폭기해 성층을 파괴한다.',
+    required: 4,
+    items: [
+      '*정의: 영양염류 유입으로 조류가 과다 번식해 수질이 악화되는 현상',
+      '고도처리로 질소·인 제거',
+      '무린세제 사용과 비점오염원 관리',
+      '저니토 준설로 내부부하 제거',
+      '살조제 살포 또는 폭기로 성층 파괴',
+    ],
   },
 ];
 
@@ -220,7 +247,7 @@ export async function buildTemplateWorkbook() {
     cell.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: col <= 3 ? 'FF2563EB' : 'FF64748B' }, // 필수 열은 진한 파랑
+      fgColor: { argb: col >= 2 && col <= 3 ? 'FF2563EB' : 'FF64748B' }, // 필수 열은 진한 파랑
     };
     cell.alignment = { vertical: 'middle', horizontal: 'center' };
     cell.border = { bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } } };
@@ -234,7 +261,6 @@ export async function buildTemplateWorkbook() {
       question: ex.question,
       answer: ex.answer,
       required: ex.required,
-      year: ex.year,
       ...Object.fromEntries(ex.items.map((v, i) => [`item${i + 1}`, v])),
     });
     row.height = 92;
@@ -274,7 +300,6 @@ function addGuideSheet(wb) {
     ['문제', '필수', COLUMNS[1].hint],
     ['모범답안', '필수', COLUMNS[2].hint],
     ['요구항목수', '', COLUMNS[3].hint],
-    ['연도회차', '', COLUMNS[4].hint],
     ['항목1~5', '', ITEM_HINT],
   ];
   rows.forEach((r) => {
@@ -295,6 +320,14 @@ function addGuideSheet(wb) {
     '  · 채운 항목이 그대로 채점 기준이 되어 AI 추출을 거치지 않습니다. 등록이 즉시 끝나고 API 비용도 들지 않습니다.',
     '  · 정답 후보가 요구항목수보다 많아도 됩니다. 예) 3가지 문제에 항목 5개 → 그중 3개만 맞히면 만점.',
     '  · 비워두면 모범답안을 읽고 AI가 항목을 나눠줍니다.',
+    '',
+    '■ 필수 항목 (*) — "정의를 쓰고 대책 3가지" 같은 복합 문제용',
+    '  · 항목 앞에 *를 붙이면 반드시 답안에 있어야 하는 필수 항목이 됩니다. 예) *정의: 조류가 과다 번식하는 현상',
+    '  · 필수 항목은 맞힌 만큼 그대로 인정되고, 나머지 항목은 (요구항목수 - 필수 개수)개까지만 인정됩니다.',
+    '  · 예) 요구항목수 4, *정의 1개 + 대책 후보 5개 → 정의는 반드시, 대책은 후보 중 3개면 만점.',
+    '        정의를 빼먹고 대책만 5개 써도 3/4 = 4점(부분정답)에 그칩니다.',
+    '  · 복합 문제는 요구항목수를 직접 적어주세요. 비우면 문제 본문의 "3가지"가 잡혀 정의 몫이 빠집니다.',
+    '  · 필수 항목이 요구항목수보다 많으면 요구항목수를 필수 개수로 올려서 채점합니다.',
     '',
     '■ 모범답안에 여러 항목을 적을 때',
     '  · 가장 정확한 방법은 항목1~5 열에 하나씩 나눠 적는 것입니다. "5가지" 문제면 항목 열 5개가 딱 맞습니다.',

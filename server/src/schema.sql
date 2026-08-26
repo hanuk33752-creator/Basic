@@ -39,7 +39,9 @@ CREATE TABLE IF NOT EXISTS keyword_group (
   group_index  INTEGER NOT NULL,
   label        TEXT,                 -- 항목 이름 (예: "폭기조 용존산소 부족")
   keywords     TEXT    NOT NULL,     -- JSON 배열 문자열
-  is_flat      INTEGER NOT NULL DEFAULT 0
+  is_flat      INTEGER NOT NULL DEFAULT 0,
+  -- 1이면 '필수 항목'. 반드시 인정되어야 하며, 나머지 선택 항목은 (N - 필수 수)개까지만 인정된다.
+  is_required  INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_kwgroup_question ON keyword_group(question_id);
 

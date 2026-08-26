@@ -24,6 +24,23 @@ export function computeRatio({ requiredCount, matchedCount, totalCount }) {
   return Math.min(matchedCount, totalCount) / totalCount;
 }
 
+/**
+ * 필수 항목이 섞인 문제의 인정 개수를 센다.
+ *
+ * 필수 항목(엑셀 항목 앞의 *)은 맞힌 만큼 그대로 인정되고,
+ * 선택 항목은 남은 자리(N - 필수 항목 수)까지만 인정된다.
+ * 그래서 "정의는 반드시 + 대책은 후보 중 3개" 같은 조건을 표현할 수 있다.
+ *
+ * 필수 항목 수가 N보다 많으면(입력 실수) N을 필수 항목 수로 올려서 채점한다.
+ */
+export function creditGroups({ requiredCount, requiredTotal, matchedRequired, matchedOptional }) {
+  const n = Math.max(requiredCount ?? 0, requiredTotal);
+  if (n <= 0) return { effectiveRequiredCount: 0, credited: 0 };
+  const optionalQuota = Math.max(0, n - requiredTotal);
+  const credited = Math.min(matchedRequired, requiredTotal) + Math.min(matchedOptional, optionalQuota);
+  return { effectiveRequiredCount: n, credited: Math.min(credited, n) };
+}
+
 export function verdictOf(ratio) {
   if (ratio >= 1) return 'O';
   if (ratio >= 0.5) return 'TRIANGLE';
@@ -118,7 +135,11 @@ export async function gradeAnswer(question, answerText) {
 
 async function gradeGroupsWithClaude(question, groups, answer, reference) {
   const groupList = groups
-    .map((g, i) => `- group_index ${i}: ${g.label ?? `항목 ${i + 1}`} (키워드: ${g.keywords.join(', ')})`)
+    .map(
+      (g, i) =>
+        `- group_index ${i}${g.is_required ? ' [필수]' : ''}: ${g.label ?? `항목 ${i + 1}`}` +
+        ` (키워드: ${g.keywords.join(', ')})`
+    )
     .join('\n');
 
   const result = await askJson({
@@ -180,14 +201,20 @@ function gradeLocally(question, groups, answer, isFlat) {
     );
   }
 
-  // 항목 인정 조건: 키워드의 절반 이상이 등장하고, 그중 대표 키워드(첫 번째)가 반드시 포함될 것.
-  // 대표 키워드 조건이 없으면 여러 항목에 공통으로 들어간 군더더기 단어만으로 오인정된다.
+  // 항목 인정 조건: 키워드의 절반 이상이 등장하고, 그중 하나 이상은 이 항목에서만 쓰이는 키워드일 것.
+  // 여러 항목에 공통으로 들어간 단어(제거, 관리 …)만 맞혔다면 그 항목을 쓴 것으로 보지 않는다.
+  const shared = sharedKeywords(groups);
   const matchedIndexes = [];
   groups.forEach((g, i) => {
     if (g.keywords.length === 0) return;
-    const hits = g.keywords.filter((k) => containsKeyword(normalizedAnswer, k)).length;
-    const leadHit = containsKeyword(normalizedAnswer, g.keywords[0]);
-    if (leadHit && hits / g.keywords.length >= 0.5) matchedIndexes.push(i);
+    const matched = g.keywords.filter((k) => containsKeyword(normalizedAnswer, k));
+    if (matched.length / g.keywords.length < 0.5) return;
+
+    const distinctive = g.keywords.filter((k) => !shared.has(normalize(k)));
+    // 항목의 키워드가 전부 공통이면 변별할 방법이 없으므로 비율 조건만으로 인정한다.
+    const hasDistinctiveHit =
+      distinctive.length === 0 || matched.some((k) => !shared.has(normalize(k)));
+    if (hasDistinctiveHit) matchedIndexes.push(i);
   });
   return buildGroupResult(
     question,
@@ -202,6 +229,17 @@ function normalize(text) {
   return text.toLowerCase().replace(/\s+/g, '');
 }
 
+/** 두 개 이상의 항목에 함께 등장하는 키워드 집합. 이런 키워드는 항목을 변별하지 못한다. */
+function sharedKeywords(groups) {
+  const counts = new Map();
+  for (const g of groups) {
+    for (const k of new Set(g.keywords.map(normalize))) {
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+  }
+  return new Set([...counts.entries()].filter(([, c]) => c > 1).map(([k]) => k));
+}
+
 function containsKeyword(normalizedAnswer, keyword) {
   const k = normalize(keyword);
   return k.length >= 2 && normalizedAnswer.includes(k);
@@ -210,25 +248,38 @@ function containsKeyword(normalizedAnswer, keyword) {
 /* ── 결과 조립 ────────────────────────────────────────────── */
 
 function buildGroupResult(question, groups, matchedIndexes, feedback, gradedBy, notes = []) {
-  const n = question.required_count;
-  const matchedGroups = matchedIndexes.map((i) => ({
+  const describe = (g, i) => ({
     group_index: i,
-    label: groups[i].label ?? `항목 ${i + 1}`,
-    keywords: groups[i].keywords,
-  }));
-  const missingGroups = groups
-    .map((g, i) => ({ group_index: i, label: g.label ?? `항목 ${i + 1}`, keywords: g.keywords }))
-    .filter((g) => !matchedIndexes.includes(g.group_index));
+    label: g.label ?? `항목 ${i + 1}`,
+    keywords: g.keywords,
+    is_required: !!g.is_required,
+  });
 
-  const ratio = computeRatio({ requiredCount: n, matchedCount: matchedGroups.length });
-  const creditedCount = Math.min(matchedGroups.length, n);
+  const matchedGroups = matchedIndexes.map((i) => describe(groups[i], i));
+  const missingGroups = groups.map(describe).filter((g) => !matchedIndexes.includes(g.group_index));
+
+  const requiredTotal = groups.filter((g) => g.is_required).length;
+  const matchedRequired = matchedGroups.filter((g) => g.is_required).length;
+  const matchedOptional = matchedGroups.length - matchedRequired;
+
+  const { effectiveRequiredCount, credited } = creditGroups({
+    requiredCount: question.required_count,
+    requiredTotal,
+    matchedRequired,
+    matchedOptional,
+  });
+  const ratio = effectiveRequiredCount > 0 ? credited / effectiveRequiredCount : 0;
 
   return {
     mode: 'group',
-    required_count: n,
+    required_count: effectiveRequiredCount,
     matched_count: matchedGroups.length,
-    credited_count: creditedCount,
+    credited_count: credited,
     total_candidates: groups.length,
+    // 필수 항목 현황 (피드백에서 "정의를 빼먹었다"를 짚어주기 위함)
+    required_total: requiredTotal,
+    matched_required: matchedRequired,
+    missing_required: missingGroups.filter((g) => g.is_required).length,
     matched_groups: matchedGroups,
     missing_groups: missingGroups,
     ratio,
@@ -250,6 +301,9 @@ function buildFlatResult(question, keywords, matched, feedback, gradedBy) {
     matched_count: matched.length,
     credited_count: matched.length,
     total_candidates: keywords.length,
+    required_total: 0,
+    matched_required: 0,
+    missing_required: 0,
     matched_groups: matched.map((k) => ({ label: k, keywords: [k] })),
     missing_groups: missing.map((k) => ({ label: k, keywords: [k] })),
     ratio,
@@ -264,13 +318,22 @@ function buildFlatResult(question, keywords, matched, feedback, gradedBy) {
 function emptyResult(question, isFlat, groups) {
   const missing = isFlat
     ? (groups[0]?.keywords ?? []).map((k) => ({ label: k, keywords: [k] }))
-    : groups.map((g, i) => ({ group_index: i, label: g.label ?? `항목 ${i + 1}`, keywords: g.keywords }));
+    : groups.map((g, i) => ({
+        group_index: i,
+        label: g.label ?? `항목 ${i + 1}`,
+        keywords: g.keywords,
+        is_required: !!g.is_required,
+      }));
+  const requiredTotal = isFlat ? 0 : groups.filter((g) => g.is_required).length;
   return {
     mode: isFlat ? 'flat' : 'group',
-    required_count: question.required_count,
+    required_count: Math.max(question.required_count ?? 0, requiredTotal) || question.required_count,
     matched_count: 0,
     credited_count: 0,
     total_candidates: isFlat ? (groups[0]?.keywords.length ?? 0) : groups.length,
+    required_total: requiredTotal,
+    matched_required: 0,
+    missing_required: requiredTotal,
     matched_groups: [],
     missing_groups: missing,
     ratio: 0,

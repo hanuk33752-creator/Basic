@@ -144,7 +144,6 @@ router.post('/confirm', (req, res) => {
         const question = repo.saveQuestion({
           packId: targetPack,
           questionText,
-          yearRound: c.year_round?.trim() || null,
           requiredCount: requiredCount ?? null,
           sourceText: c.source_text?.trim() || null,
           groups: kw.groups,

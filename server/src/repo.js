@@ -116,7 +116,7 @@ function hydrate(q) {
   const groups = all(
     'SELECT * FROM keyword_group WHERE question_id = ? ORDER BY group_index',
     q.question_id
-  ).map((g) => ({ ...g, keywords: JSON.parse(g.keywords), is_flat: !!g.is_flat }));
+  ).map((g) => ({ ...g, keywords: JSON.parse(g.keywords), is_flat: !!g.is_flat, is_required: !!g.is_required }));
   const references = all(
     'SELECT * FROM reference_material WHERE question_id = ? ORDER BY reference_id',
     q.question_id
@@ -196,11 +196,13 @@ function writeGroups(questionId, requiredCount, groups) {
   }
   groups.forEach((g, i) => {
     run(
-      'INSERT INTO keyword_group (question_id, group_index, label, keywords, is_flat) VALUES (?, ?, ?, ?, 0)',
+      `INSERT INTO keyword_group (question_id, group_index, label, keywords, is_flat, is_required)
+       VALUES (?, ?, ?, ?, 0, ?)`,
       questionId,
       i,
       g.label ?? null,
-      JSON.stringify(g.keywords ?? [])
+      JSON.stringify(g.keywords ?? []),
+      g.is_required ? 1 : 0
     );
   });
 }

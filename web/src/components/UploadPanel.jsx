@@ -33,7 +33,6 @@ export default function UploadPanel({ packId, packName, onSaved }) {
           key: `${i}`,
           include: true,
           question_text: c.question_text,
-          year_round: c.year_round ?? '',
           source_text: c.source_text ?? '',
           required_count: c.required_count ?? '',
           required_count_locked: !!c.required_count_locked,
@@ -74,11 +73,10 @@ export default function UploadPanel({ packId, packName, onSaved }) {
     try {
       const payload = chosen.map((r) => ({
         question_text: r.question_text.trim(),
-        year_round: r.year_round.trim(),
         source_text: r.source_text.trim(),
         required_count: r.required_count === '' ? null : Number(r.required_count),
         required_count_locked: r.required_count_locked,
-        groups: r.groups ?? [],
+        groups: r.groups ?? [],   // 필수 표시(is_required) 포함
       }));
       const started = await api.confirmCandidates(packId, payload);
       const data = await api.waitForJob(started.job_id, setJob);
@@ -214,6 +212,8 @@ function CandidateRow({ row, index, open, onToggleOpen, onPatch }) {
           {row.groups?.length > 0 && (
             <span className="tag hit" title="엑셀 항목 열에서 채점 기준이 확정됨">
               항목 {row.groups.length}
+              {row.groups.filter((g) => g.is_required).length > 0 &&
+                ` (★${row.groups.filter((g) => g.is_required).length})`}
             </span>
           )}
           <span className="tag">{row.required_count ? `${row.required_count}가지` : '일반'}</span>
@@ -241,28 +241,17 @@ function CandidateRow({ row, index, open, onToggleOpen, onPatch }) {
               onChange={(e) => onPatch(row.key, 'source_text', e.target.value)}
             />
           </label>
-          <div className="btn-row">
-            <label className="field" style={{ flex: '1 1 160px' }}>
-              연도/회차
-              <input
-                type="text"
-                value={row.year_round}
-                placeholder="예: 2023년 1회"
-                onChange={(e) => onPatch(row.key, 'year_round', e.target.value)}
-              />
-            </label>
-            <label className="field" style={{ flex: '0 1 140px' }}>
-              요구 항목 수 (N)
-              <input
-                type="number"
-                min="1"
-                max="20"
-                value={row.required_count}
-                placeholder="없음"
-                onChange={(e) => onPatch(row.key, 'required_count', e.target.value)}
-              />
-            </label>
-          </div>
+          <label className="field" style={{ maxWidth: 180 }}>
+            요구 항목 수 (N)
+            <input
+              type="number"
+              min="1"
+              max="20"
+              value={row.required_count}
+              placeholder="없음"
+              onChange={(e) => onPatch(row.key, 'required_count', e.target.value)}
+            />
+          </label>
         </div>
       )}
     </div>
