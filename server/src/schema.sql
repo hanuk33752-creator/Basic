@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS cert_pack (
   pack_id    INTEGER PRIMARY KEY AUTOINCREMENT,
   name       TEXT    NOT NULL UNIQUE,
   is_active  INTEGER NOT NULL DEFAULT 0,   -- 0/1, 활성 팩은 항상 최대 1개
-  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
 -- 3.2 문제
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS question (
   year_round     TEXT,                       -- 연도/회차 (선택)
   max_score      REAL    NOT NULL DEFAULT 5, -- 배점 5점 고정
   required_count INTEGER,                    -- N. "n가지 서술" 패턴이 없으면 NULL
-  created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+  created_at     TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 CREATE INDEX IF NOT EXISTS idx_question_pack ON question(pack_id);
 
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS attempt (
   missing_groups TEXT    NOT NULL,   -- JSON 배열
   feedback       TEXT,
   graded_by      TEXT    NOT NULL DEFAULT 'claude', -- 'claude' | 'local'
-  submitted_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+  submitted_at   TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 CREATE INDEX IF NOT EXISTS idx_attempt_question ON attempt(question_id);
 CREATE INDEX IF NOT EXISTS idx_attempt_time ON attempt(submitted_at);

@@ -30,6 +30,12 @@ export const api = {
     request('GET', `/quiz?count=${count}${packId ? `&packId=${packId}` : ''}`),
   submitAnswers: (answers) => request('POST', '/submit', { answers }),
 
+  // 오답노트
+  listNotes: (period = 'all', packId) =>
+    request('GET', `/notes?period=${period}${packId ? `&packId=${packId}` : ''}`),
+  getNoteHistory: (questionId, period = 'all') =>
+    request('GET', `/notes/${questionId}?period=${period}`),
+
   // 문서 업로드 파이프라인
   parseDocument: (file) => {
     const form = new FormData();
