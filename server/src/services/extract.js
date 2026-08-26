@@ -244,6 +244,9 @@ function splitQuestionAndReference(block) {
 const STOPWORDS = new Set([
   '위해', '경우', '때문', '그리고', '또는', '이나', '등의', '것을', '것이', '통해', '대한',
   '따라', '가지', '다음', '해당', '이때', '지나치게', '대표적', '또한', '가장', '매우', '함께',
+  // 항목을 나열할 때 붙는 서수·군더더기. 어느 항목에나 나와 변별력이 없다.
+  '첫째', '둘째', '셋째', '넷째', '다섯째', '여섯째', '첫번째', '두번째', '세번째', '네번째',
+  '항목', '내용', '아래', '위와', '같이', '경우에', '이유', '설명',
 ]);
 const JOSA = /(?:으로서|으로써|에서의|에게|에서|으로|이라|과의|와의|은|는|이|가|을|를|의|에|와|과|도|만|로)$/;
 
@@ -278,6 +281,11 @@ function splitSentences(text) {
     .split(/(?<=다)\.\s+|(?<=[.!?])\s+/)
     .map((s) => s.trim())
     .filter((s) => s.length > 3);
+}
+
+/** 임의의 문장에서 핵심 명사구 키워드를 뽑는다. (엑셀 항목 열 등에서 사용) */
+export function keywordsFromText(text, limit = 5) {
+  return topTokens(text ?? '', limit);
 }
 
 function topTokens(text, limit) {

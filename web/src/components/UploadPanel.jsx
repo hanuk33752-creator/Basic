@@ -36,7 +36,8 @@ export default function UploadPanel({ packId, packName, onSaved }) {
           year_round: c.year_round ?? '',
           source_text: c.source_text ?? '',
           required_count: c.required_count ?? '',
-          required_count_locked: false,
+          required_count_locked: !!c.required_count_locked,
+          groups: c.groups ?? [],
         }))
       );
       setStage(data.candidates.length ? 'preview' : 'idle');
@@ -77,6 +78,7 @@ export default function UploadPanel({ packId, packName, onSaved }) {
         source_text: r.source_text.trim(),
         required_count: r.required_count === '' ? null : Number(r.required_count),
         required_count_locked: r.required_count_locked,
+        groups: r.groups ?? [],
       }));
       const started = await api.confirmCandidates(packId, payload);
       const data = await api.waitForJob(started.job_id, setJob);
@@ -97,14 +99,24 @@ export default function UploadPanel({ packId, packName, onSaved }) {
   return (
     <div className="card">
       <div className="card-head">
-        <strong>문서 업로드</strong>
-        <span className="muted">docx · pdf · txt</span>
+        <strong>문제 등록</strong>
+        <span className="muted">xlsx · docx · pdf · txt</span>
       </div>
       <p className="muted" style={{ marginTop: 4 }}>
         {packName
           ? `'${packName}' 팩에 문제를 추가합니다. 한 번에 최대 ${meta?.max_candidates ?? 500}문제까지 등록할 수 있습니다.`
           : '먼저 자격증 팩을 선택해 주세요.'}
       </p>
+
+      <div className="notice" style={{ marginTop: 10 }}>
+        <strong>엑셀 양식을 권합니다.</strong> 워드·PDF는 문서 구조에 따라 문제 경계를 잘못 잡을 수 있습니다.
+        양식에 문제와 모범답안을 행 단위로 적으면 그대로 정확히 등록됩니다.
+        <div className="btn-row" style={{ marginTop: 8 }}>
+          <a className="btn sm" href="/api/upload/template.xlsx" download>
+            ⬇ 엑셀 양식 내려받기
+          </a>
+        </div>
+      </div>
 
       {error && <div className="error" style={{ marginTop: 10 }}>{error}</div>}
       {result && <SaveSummary result={result} />}
@@ -114,7 +126,7 @@ export default function UploadPanel({ packId, packName, onSaved }) {
           <input
             ref={fileRef}
             type="file"
-            accept=".docx,.pdf,.txt,.md"
+            accept=".xlsx,.xls,.docx,.pdf,.txt,.md"
             disabled={!packId || stage !== 'idle'}
             onChange={(e) => handleFile(e.target.files?.[0])}
             style={{ flex: '1 1 240px' }}
@@ -128,8 +140,10 @@ export default function UploadPanel({ packId, packName, onSaved }) {
         <>
           <div className="notice" style={{ marginTop: 12 }}>
             {meta.filename} · 문제 후보 {rows.length}개 · 선택 {included}개
+            {meta.parsed_by === 'excel' && ` · '${meta.sheet_name}' 시트에서 읽음`}
             {meta.truncated && ` · 상한 ${meta.max_candidates}개를 넘어 앞부분만 가져왔습니다.`}
             {meta.parsed_by === 'local' && ' · Claude API 키가 없어 로컬 규칙으로 분리했습니다. 내용을 꼭 확인해 주세요.'}
+            {meta.skipped?.length > 0 && ` · 건너뛴 행 ${meta.skipped.length}개(문제 본문 없음)`}
             {meta.failures?.length > 0 && ` · 일부 구간(${meta.failures.length}개) 분석 실패`}
           </div>
 
@@ -197,6 +211,11 @@ function CandidateRow({ row, index, open, onToggleOpen, onPatch }) {
         </button>
         <span className="preview-badges">
           {missingSource && <span className="tag miss" title="참고자료 없음">참고자료 없음</span>}
+          {row.groups?.length > 0 && (
+            <span className="tag hit" title="엑셀 항목 열에서 채점 기준이 확정됨">
+              항목 {row.groups.length}
+            </span>
+          )}
           <span className="tag">{row.required_count ? `${row.required_count}가지` : '일반'}</span>
           <button type="button" className="btn sm ghost" onClick={onToggleOpen}>
             {open ? '닫기' : '편집'}

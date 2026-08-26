@@ -180,11 +180,14 @@ function gradeLocally(question, groups, answer, isFlat) {
     );
   }
 
-  // 그룹의 키워드 절반 이상이 답안에 등장하면 그 항목을 맞춘 것으로 본다.
+  // 항목 인정 조건: 키워드의 절반 이상이 등장하고, 그중 대표 키워드(첫 번째)가 반드시 포함될 것.
+  // 대표 키워드 조건이 없으면 여러 항목에 공통으로 들어간 군더더기 단어만으로 오인정된다.
   const matchedIndexes = [];
   groups.forEach((g, i) => {
+    if (g.keywords.length === 0) return;
     const hits = g.keywords.filter((k) => containsKeyword(normalizedAnswer, k)).length;
-    if (g.keywords.length > 0 && hits / g.keywords.length >= 0.5) matchedIndexes.push(i);
+    const leadHit = containsKeyword(normalizedAnswer, g.keywords[0]);
+    if (leadHit && hits / g.keywords.length >= 0.5) matchedIndexes.push(i);
   });
   return buildGroupResult(
     question,

@@ -4,6 +4,7 @@ import * as repo from '../repo.js';
 import { extractText, detectRequiredCount } from '../services/parse.js';
 import { proposeQuestions, buildKeywords, MAX_CANDIDATES } from '../services/extract.js';
 import { isClaudeAvailable } from '../services/claude.js';
+import { readQuestionWorkbook, buildTemplateWorkbook } from '../services/workbook.js';
 import { createJob, getJob, updateJob, finishJob, failJob, publicView, mapWithConcurrency } from '../services/jobs.js';
 
 const router = Router();
@@ -17,12 +18,32 @@ const SAVE_CONCURRENCY = Number(process.env.EXTRACT_CONCURRENCY) || 4;
 router.post('/parse', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: '파일이 필요합니다.' });
 
-  const { originalname, buffer } = req.file;
+  // multer 는 multipart 파일명을 latin1 으로 디코딩한다. 한글 파일명을 되살린다.
+  const originalname = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+  const { buffer } = req.file;
   const job = createJob('parse');
   res.status(202).json(publicView(job));
 
   (async () => {
     try {
+      // 엑셀은 이미 문제 단위로 정리된 표라 AI 분리 단계가 필요 없다.
+      if (/\.xlsx?$/i.test(originalname)) {
+        updateJob(job.job_id, { phase: '엑셀에서 문제 읽는 중' });
+        const { candidates, skipped, sheet_name } = await readQuestionWorkbook(buffer);
+        finishJob(job.job_id, {
+          filename: originalname,
+          parsed_by: 'excel',
+          sheet_name,
+          claude_available: isClaudeAvailable(),
+          truncated: candidates.length > MAX_CANDIDATES,
+          max_candidates: MAX_CANDIDATES,
+          skipped,
+          failures: [],
+          candidates: candidates.slice(0, MAX_CANDIDATES),
+        });
+        return;
+      }
+
       updateJob(job.job_id, { phase: '문서에서 텍스트 추출 중' });
       const text = await extractText(buffer, originalname);
       if (!text) throw new Error('문서에서 텍스트를 추출하지 못했습니다.');
@@ -88,11 +109,17 @@ router.post('/confirm', (req, res) => {
             c.required_count === '' || c.required_count === undefined || c.required_count === null
               ? detectRequiredCount(questionText)
               : c.required_count;
-          const kw = await buildKeywords({
-            question_text: questionText,
-            source_text: c.source_text ?? '',
-            required_count: requested,
-          });
+
+          // 엑셀 항목 열처럼 채점 기준이 이미 정해져 있으면 AI 추출을 건너뛴다.
+          const explicit = (c.groups ?? []).filter((g) => (g.keywords ?? []).length > 0);
+          const kw = explicit.length
+            ? { source: 'explicit', required_count: requested, groups: explicit }
+            : await buildKeywords({
+                question_text: questionText,
+                source_text: c.source_text ?? '',
+                required_count: requested,
+              });
+
           return { c, questionText, requested, kw };
         },
         () => {
@@ -110,7 +137,10 @@ router.post('/confirm', (req, res) => {
         }
         const { c, questionText, requested, kw } = r.value;
         // 사용자가 미리보기에서 N을 직접 지정했으면 그 값을 우선한다.
-        const requiredCount = c.required_count_locked ? requested : kw.required_count ?? requested ?? null;
+        const requiredCount =
+          c.required_count_locked || kw.source === 'explicit'
+            ? requested
+            : kw.required_count ?? requested ?? null;
         const question = repo.saveQuestion({
           packId: targetPack,
           questionText,
@@ -138,6 +168,21 @@ router.post('/confirm', (req, res) => {
       failJob(job.job_id, err);
     }
   })();
+});
+
+/** 문제 등록용 엑셀 양식 다운로드 */
+router.get('/template.xlsx', async (req, res, next) => {
+  try {
+    const buffer = await buildTemplateWorkbook();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="question-template.xlsx"; filename*=UTF-8''${encodeURIComponent('문제등록_양식.xlsx')}`
+    );
+    res.send(buffer);
+  } catch (err) {
+    next(err);
+  }
 });
 
 /** 잡 진행 상황 폴링 */
