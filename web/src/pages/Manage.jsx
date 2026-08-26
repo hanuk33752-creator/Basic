@@ -11,6 +11,11 @@ export default function Manage() {
   const [limit, setLimit] = useState(30);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [health, setHealth] = useState(null);
+
+  useEffect(() => {
+    api.health().then(setHealth).catch(() => setHealth(null));
+  }, []);
 
   const loadQuestions = useCallback(async () => {
     if (!activePack) return setQuestions([]);
@@ -50,6 +55,19 @@ export default function Manage() {
       <h1>문제 관리</h1>
       <p className="sub">자격증 팩을 만들고 전환합니다. 활성 팩의 문제만 출제됩니다.</p>
       {error && <div className="error">{error}</div>}
+
+      {health && !health.claude_available && (
+        <div className="error">
+          <strong>AI 채점이 꺼져 있습니다.</strong> 지금은 단어 포함 여부만 보는 로컬 규칙으로 채점합니다.
+          <div className="muted" style={{ marginTop: 6 }}>
+            프로젝트 폴더의 <code>.env</code> 파일에 <code>ANTHROPIC_API_KEY=sk-ant-...</code> 를 넣고
+            터미널에서 <code>Ctrl+C</code> 로 끈 뒤 <code>npm start</code> 로 다시 시작하세요.
+          </div>
+        </div>
+      )}
+      {health?.claude_available && (
+        <div className="notice">AI 채점 사용 중 ({health.model})</div>
+      )}
 
       <h2>자격증 팩</h2>
       <div className="card">

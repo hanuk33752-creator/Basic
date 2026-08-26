@@ -192,13 +192,8 @@ function gradeLocally(question, groups, answer, isFlat) {
   if (isFlat) {
     const keywords = groups[0].keywords;
     const matched = keywords.filter((k) => containsKeyword(normalizedAnswer, k));
-    return buildFlatResult(
-      question,
-      keywords,
-      matched,
-      '로컬 규칙(키워드 포함 여부)으로 채점했습니다. 의미 기반 채점을 쓰려면 ANTHROPIC_API_KEY를 설정하세요.',
-      'local'
-    );
+    // 로컬 채점은 답안에 대해 해줄 말이 없다. 안내는 화면 배지가 담당한다.
+    return buildFlatResult(question, keywords, matched, null, 'local');
   }
 
   // 항목 인정 조건: 키워드의 절반 이상이 등장하고, 그중 하나 이상은 이 항목에서만 쓰이는 키워드일 것.
@@ -216,13 +211,7 @@ function gradeLocally(question, groups, answer, isFlat) {
       distinctive.length === 0 || matched.some((k) => !shared.has(normalize(k)));
     if (hasDistinctiveHit) matchedIndexes.push(i);
   });
-  return buildGroupResult(
-    question,
-    groups,
-    matchedIndexes,
-    '로컬 규칙(키워드 포함 여부)으로 채점했습니다. 의미 기반 채점을 쓰려면 ANTHROPIC_API_KEY를 설정하세요.',
-    'local'
-  );
+  return buildGroupResult(question, groups, matchedIndexes, null, 'local');
 }
 
 function normalize(text) {

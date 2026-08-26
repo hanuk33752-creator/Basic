@@ -90,8 +90,10 @@ export default function ResultCard({ result, index, total }) {
         </p>
       )}
       {result.graded_by === 'local' && (
-        <p className="muted" style={{ marginTop: 6 }}>
-          ⚠️ 로컬 규칙 채점 결과입니다 (ANTHROPIC_API_KEY 미설정).
+        <p className="muted" style={{ marginTop: 10 }}>
+          ⚠️ 단어 포함 여부만 보는 <strong>로컬 규칙</strong>으로 채점했습니다.
+          같은 뜻을 다르게 쓴 답안은 틀린 것으로 처리될 수 있습니다.
+          의미 기반 채점을 쓰려면 <code>.env</code> 에 <code>ANTHROPIC_API_KEY</code> 를 넣고 앱을 다시 시작하세요.
         </p>
       )}
     </section>
