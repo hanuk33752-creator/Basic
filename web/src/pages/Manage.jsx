@@ -56,17 +56,24 @@ export default function Manage() {
       <p className="sub">자격증 팩을 만들고 전환합니다. 활성 팩의 문제만 출제됩니다.</p>
       {error && <div className="error">{error}</div>}
 
-      {health && !health.claude_available && (
-        <div className="error">
-          <strong>AI 채점이 꺼져 있습니다.</strong> 지금은 단어 포함 여부만 보는 로컬 규칙으로 채점합니다.
-          <div className="muted" style={{ marginTop: 6 }}>
-            프로젝트 폴더의 <code>.env</code> 파일에 <code>ANTHROPIC_API_KEY=sk-ant-...</code> 를 넣고
-            터미널에서 <code>Ctrl+C</code> 로 끈 뒤 <code>npm start</code> 로 다시 시작하세요.
-          </div>
+      {health && (
+        <div className="notice">
+          {health.claude_available ? (
+            <>채점 방식: <strong>AI 의미 기반</strong> ({health.model})</>
+          ) : (
+            <>
+              채점 방식: <strong>키워드 대조</strong> · 인터넷 없이 동작합니다
+              <details style={{ marginTop: 6 }}>
+                <summary className="muted" style={{ cursor: 'pointer' }}>AI 의미 기반 채점으로 바꾸려면</summary>
+                <div className="muted" style={{ marginTop: 6 }}>
+                  프로젝트 폴더의 <code>.env</code> 파일에 <code>ANTHROPIC_API_KEY=sk-ant-...</code> 를 넣고
+                  터미널에서 <code>Ctrl+C</code> 로 끈 뒤 <code>npm start</code> 로 다시 시작하세요.
+                  같은 뜻을 다르게 쓴 답안까지 인정되지만, 채점할 때마다 인터넷 연결과 API 비용이 듭니다.
+                </div>
+              </details>
+            </>
+          )}
         </div>
-      )}
-      {health?.claude_available && (
-        <div className="notice">AI 채점 사용 중 ({health.model})</div>
       )}
 
       <h2>자격증 팩</h2>

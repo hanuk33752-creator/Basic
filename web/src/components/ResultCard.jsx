@@ -91,9 +91,8 @@ export default function ResultCard({ result, index, total }) {
       )}
       {result.graded_by === 'local' && (
         <p className="muted" style={{ marginTop: 10 }}>
-          ⚠️ 단어 포함 여부만 보는 <strong>로컬 규칙</strong>으로 채점했습니다.
-          같은 뜻을 다르게 쓴 답안은 틀린 것으로 처리될 수 있습니다.
-          의미 기반 채점을 쓰려면 <code>.env</code> 에 <code>ANTHROPIC_API_KEY</code> 를 넣고 앱을 다시 시작하세요.
+          키워드 대조로 채점했습니다. 같은 뜻을 다른 말로 쓰면 인정되지 않을 수 있으니,
+          위 항목과 비교해 직접 확인해 주세요.
         </p>
       )}
     </section>
