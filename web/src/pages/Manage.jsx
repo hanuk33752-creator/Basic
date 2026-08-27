@@ -56,6 +56,20 @@ export default function Manage() {
       <p className="sub">자격증 팩을 만들고 전환합니다. 활성 팩의 문제만 출제됩니다.</p>
       {error && <div className="error">{error}</div>}
 
+      {health?.lan_urls?.length > 0 && (
+        <div className="notice">
+          휴대폰·태블릿에서도 쓰려면 <strong>같은 와이파이</strong>에 연결한 뒤 아래 주소로 접속하세요.
+          <div style={{ marginTop: 6 }}>
+            {health.lan_urls.map((url) => (
+              <code key={url} style={{ display: 'block', fontSize: 15 }}>{url}</code>
+            ))}
+          </div>
+          <div className="muted" style={{ marginTop: 6 }}>
+            이 PC가 켜져 있고 앱이 실행 중일 때만 됩니다. 로그인 기능이 없으니 공용 와이파이에서는 쓰지 마세요.
+          </div>
+        </div>
+      )}
+
       {health && (
         <div className="notice">
           {health.claude_available ? (

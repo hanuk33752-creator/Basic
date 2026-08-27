@@ -1,4 +1,5 @@
 import './env.js'; // 다른 모듈이 process.env 를 읽기 전에 .env 를 먼저 로드한다.
+import { lanAddresses } from './services/network.js';
 import express from 'express';
 import { exec } from 'node:child_process';
 import fs from 'node:fs';
@@ -19,7 +20,13 @@ app.use(express.json({ limit: '10mb' }));
 
 app.get('/api/health', async (req, res) => {
   const { isClaudeAvailable, MODEL } = await import('./services/claude.js');
-  res.json({ ok: true, claude_available: isClaudeAvailable(), model: MODEL });
+  res.json({
+    ok: true,
+    claude_available: isClaudeAvailable(),
+    model: MODEL,
+    // 같은 네트워크의 다른 기기(휴대폰 등)에서 접속할 주소
+    lan_urls: lanAddresses(PORT),
+  });
 });
 
 /**
