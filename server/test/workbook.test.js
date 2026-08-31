@@ -3,12 +3,24 @@ import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
 import { buildTemplateWorkbook, readQuestionWorkbook } from '../src/services/workbook.js';
 
-/** 생성된 양식을 열어 사용자가 채운 것처럼 값을 넣고 다시 읽는다. */
+/**
+ * 생성된 양식을 열어 사용자가 채운 것처럼 값을 넣고 다시 읽는다.
+ * fill 에는 시트와 '첫 빈 입력행 번호'를 넘겨 예시 행이 늘어도 테스트가 깨지지 않게 한다.
+ */
 async function fillTemplate(fill) {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(await buildTemplateWorkbook());
-  fill(wb.getWorksheet('문제'));
+  const sheet = wb.getWorksheet('문제');
+  fill(sheet, firstInputRow(sheet));
   return readQuestionWorkbook(Buffer.from(await wb.xlsx.writeBuffer()));
+}
+
+/** 예시 행을 지나 사용자가 처음 입력하게 되는 행 번호 */
+function firstInputRow(sheet) {
+  for (let r = 2; r <= sheet.rowCount; r += 1) {
+    if (!String(sheet.getRow(r).getCell(2).value ?? '').trim()) return r;
+  }
+  throw new Error('빈 입력행을 찾지 못했습니다');
 }
 
 test('양식에는 문제 시트와 안내 시트가 있다', async () => {
@@ -21,7 +33,9 @@ test('양식에는 문제 시트와 안내 시트가 있다', async () => {
   const names = [];
   header.eachCell((c) => names.push(String(c.value)));
   assert.deepEqual(names.slice(0, 4), ['번호', '문제', '모범답안', '요구항목수']);
-  assert.deepEqual(names.slice(4), ['항목1', '항목2', '항목3', '항목4', '항목5']);
+  assert.deepEqual(names.slice(4), [
+    '항목1', '항목2', '항목3', '항목4', '항목5', '항목6', '항목7', '항목8',
+  ]);
 });
 
 test('예시 행은 등록되지 않는다', async () => {
@@ -30,8 +44,8 @@ test('예시 행은 등록되지 않는다', async () => {
 });
 
 test('항목 열을 채우면 그대로 채점 기준이 된다', async () => {
-  const { candidates } = await fillTemplate((sheet) => {
-    const row = sheet.getRow(5);
+  const { candidates } = await fillTemplate((sheet, top) => {
+    const row = sheet.getRow(top);
     row.getCell(2).value = '전기집진장치의 역전리 대책을 3가지 서술하시오.';
     row.getCell(3).value = '조습제 주입, 탈진 주기 단축, 펄스 하전 적용.';
     row.getCell(5).value = '조습제(SO3) 주입으로 전기비저항 저감';
@@ -48,8 +62,8 @@ test('항목 열을 채우면 그대로 채점 기준이 된다', async () => {
 });
 
 test('항목이 없으면 모범답안만 싣고 그룹은 비운다 (나중에 AI가 추출)', async () => {
-  const { candidates } = await fillTemplate((sheet) => {
-    const row = sheet.getRow(5);
+  const { candidates } = await fillTemplate((sheet, top) => {
+    const row = sheet.getRow(top);
     row.getCell(2).value = 'BOD와 COD의 차이를 설명하시오.';
     row.getCell(3).value = 'BOD는 생물학적 산소요구량이고 COD는 화학적 산소요구량이다.';
   });
@@ -60,8 +74,8 @@ test('항목이 없으면 모범답안만 싣고 그룹은 비운다 (나중에 
 });
 
 test('요구항목수를 직접 적으면 그 값이 우선한다', async () => {
-  const { candidates } = await fillTemplate((sheet) => {
-    const row = sheet.getRow(5);
+  const { candidates } = await fillTemplate((sheet, top) => {
+    const row = sheet.getRow(top);
     row.getCell(2).value = '원인을 3가지 서술하시오.';
     row.getCell(3).value = '가나다 라마바';
     row.getCell(4).value = 5;
@@ -71,8 +85,8 @@ test('요구항목수를 직접 적으면 그 값이 우선한다', async () => 
 });
 
 test('모범답안이 비어도 항목이 있으면 그것을 참고자료로 삼는다', async () => {
-  const { candidates } = await fillTemplate((sheet) => {
-    const row = sheet.getRow(5);
+  const { candidates } = await fillTemplate((sheet, top) => {
+    const row = sheet.getRow(top);
     row.getCell(2).value = '방지대책을 2가지 쓰시오.';
     row.getCell(5).value = '고도처리로 영양염류 제거';
     row.getCell(6).value = '비점오염원 관리';
@@ -82,10 +96,10 @@ test('모범답안이 비어도 항목이 있으면 그것을 참고자료로 �
 });
 
 test('문제 본문이 비면 건너뛰고 이유를 알려준다', async () => {
-  const { candidates, skipped } = await fillTemplate((sheet) => {
-    sheet.getRow(5).getCell(3).value = '문제 없이 답만 적힌 행';
-    sheet.getRow(6).getCell(2).value = '정상 문제입니다.';
-    sheet.getRow(6).getCell(3).value = '정상 답안입니다.';
+  const { candidates, skipped } = await fillTemplate((sheet, top) => {
+    sheet.getRow(top).getCell(3).value = '문제 없이 답만 적힌 행';
+    sheet.getRow(top + 1).getCell(2).value = '정상 문제입니다.';
+    sheet.getRow(top + 1).getCell(3).value = '정상 답안입니다.';
   });
   assert.equal(candidates.length, 1);
   assert.equal(skipped.length, 1);
@@ -115,8 +129,8 @@ test("'문제' 열이 없으면 친절한 오류를 낸다", async () => {
 });
 
 test('항목 앞의 *는 필수 항목 표시가 된다', async () => {
-  const { candidates } = await fillTemplate((sheet) => {
-    const row = sheet.getRow(5);
+  const { candidates } = await fillTemplate((sheet, top) => {
+    const row = sheet.getRow(top);
     row.getCell(2).value = '부영양화의 정의를 쓰고 방지대책을 3가지 서술하시오.';
     row.getCell(3).value = '부영양화란 조류가 과다 번식하는 현상이다. 고도처리, 무린세제, 준설로 막는다.';
     row.getCell(4).value = 4; // 정의 1 + 대책 3
@@ -142,12 +156,15 @@ test('연도회차 열은 양식에서 빠졌다', async () => {
   const names = [];
   wb.getWorksheet('문제').getRow(1).eachCell((c) => names.push(String(c.value)));
   assert.ok(!names.includes('연도회차'));
-  assert.deepEqual(names, ['번호', '문제', '모범답안', '요구항목수', '항목1', '항목2', '항목3', '항목4', '항목5']);
+  assert.deepEqual(names, [
+    '번호', '문제', '모범답안', '요구항목수',
+    '항목1', '항목2', '항목3', '항목4', '항목5', '항목6', '항목7', '항목8',
+  ]);
 });
 
 test('필수 표시만 있고 요구항목수·"n가지"가 없으면 항목 수를 요구 항목으로 본다', async () => {
-  const { candidates } = await fillTemplate((sheet) => {
-    const row = sheet.getRow(5);
+  const { candidates } = await fillTemplate((sheet, top) => {
+    const row = sheet.getRow(top);
     row.getCell(2).value = '전기집진장치의 원리와 장점을 설명하시오.';
     row.getCell(3).value = '하전된 분진을 집진극에 부착시켜 제거한다. 미세입자 제거 효율이 높다.';
     row.getCell(5).value = '*원리: 하전된 분진을 집진극에 부착';
@@ -155,4 +172,34 @@ test('필수 표시만 있고 요구항목수·"n가지"가 없으면 항목 수
   });
   assert.equal(candidates[0].required_count, 2);
   assert.deepEqual(candidates[0].groups.map((g) => g.is_required), [true, true]);
+});
+
+test('항목 8칸을 모두 채운 복합 문제를 읽는다', async () => {
+  const { candidates } = await fillTemplate((sheet, top) => {
+    const row = sheet.getRow(top);
+    row.getCell(2).value =
+      '전기집진기에서 비저항이 10^4 이하일 때와 10^11 이상일 때의 발생현상과 방지책을 각각 쓰시오.';
+    row.getCell(3).value = '재비산과 역전리가 각각 발생한다.';
+    row.getCell(4).value = 8;
+    const items = [
+      '*저비저항: 재비산 발생',
+      'NH3 투입',
+      '가스 증습으로 습도 조절',
+      '처리가스 속도 낮춤',
+      '*고비저항: 역전리 발생',
+      'SO3 투입',
+      '탈진 주기 단축',
+      '전극 청결 유지',
+    ];
+    items.forEach((text, i) => { row.getCell(5 + i).value = text; });
+  });
+
+  assert.equal(candidates.length, 1);
+  const c = candidates[0];
+  assert.equal(c.required_count, 8);
+  assert.equal(c.groups.length, 8, '항목 8개가 모두 읽혀야 한다');
+  assert.deepEqual(
+    c.groups.filter((g) => g.is_required).map((g) => g.label),
+    ['저비저항: 재비산 발생', '고비저항: 역전리 발생']
+  );
 });

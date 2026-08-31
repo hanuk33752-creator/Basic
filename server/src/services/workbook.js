@@ -7,7 +7,7 @@ import { keywordsFromText } from './extract.js';
  * 행 = 문제 1건, 열 = 문제 관리에 필요한 항목
  * ──────────────────────────────────────────────────────────── */
 
-export const ITEM_COLUMNS = 5; // 항목1 ~ 항목5
+export const ITEM_COLUMNS = 8; // 항목1 ~ 항목8
 
 const COLUMNS = [
   { key: 'no', header: '번호', width: 7, hint: '문제 번호. 본인 정리용이며 앱은 순서만 사용합니다.' },
@@ -200,7 +200,7 @@ const EXAMPLES = [
     answer:
       '최적 응집제 주입량과 최적 pH를 실험적으로 결정하기 위한 시험이다. 교반 강도와 시간을 달리하며 플록 형성 상태와 상등수 탁도를 관찰해 응집 조건을 도출한다.',
     required: '',
-    items: ['', '', '', '', ''],
+    items: [],
   },
   {
     no: '예시3',
@@ -216,6 +216,28 @@ const EXAMPLES = [
       '무린세제 사용과 비점오염원 관리',
       '저니토 준설로 내부부하 제거',
       '살조제 살포 또는 폭기로 성층 파괴',
+    ],
+  },
+  {
+    no: '예시4',
+    question:
+      '전기집진기 운전 시 분진의 비저항이 10^4 Ω·cm 이하일 때와 10^11 Ω·cm 이상일 때의 ' +
+      '발생현상과 방지책을 각각 쓰시오.',
+    answer:
+      '비저항이 낮으면 집진극에서 전하를 잃은 분진이 다시 날리는 재비산이 일어난다.\n' +
+      'NH3를 투입하고, 습도를 조절하며, 처리가스 속도를 낮춘다.\n' +
+      '비저항이 높으면 분진층에서 역방향 방전이 일어나는 역전리가 발생한다.\n' +
+      'SO3를 투입하고, 습도를 조절하며, 전극을 청결하게 유지한다.',
+    required: 8,
+    items: [
+      '*저비저항: 재비산 발생',
+      'NH3(암모니아) 투입',
+      '가스 증습으로 습도 조절',
+      '처리가스 속도 낮춤',
+      '*고비저항: 역전리 발생',
+      'SO3 투입',
+      '탈진 주기 단축',
+      '전극 청결 유지',
     ],
   },
 ];
@@ -256,12 +278,14 @@ export async function buildTemplateWorkbook() {
   });
 
   for (const ex of EXAMPLES) {
+    // 예시가 채우지 않은 항목 칸은 빈칸으로 남긴다.
+    const items = Array.from({ length: ITEM_COLUMNS }, (_, i) => [`item${i + 1}`, ex.items[i] ?? '']);
     const row = sheet.addRow({
       no: ex.no,
       question: ex.question,
       answer: ex.answer,
       required: ex.required,
-      ...Object.fromEntries(ex.items.map((v, i) => [`item${i + 1}`, v])),
+      ...Object.fromEntries(items),
     });
     row.height = 92;
     row.eachCell({ includeEmpty: true }, (cell) => {
@@ -300,7 +324,7 @@ function addGuideSheet(wb) {
     ['문제', '필수', COLUMNS[1].hint],
     ['모범답안', '필수', COLUMNS[2].hint],
     ['요구항목수', '', COLUMNS[3].hint],
-    ['항목1~5', '', ITEM_HINT],
+    [`항목1~${ITEM_COLUMNS}`, '', ITEM_HINT],
   ];
   rows.forEach((r) => {
     const row = guide.addRow({ name: r[0], req: r[1], desc: r[2] });
@@ -330,7 +354,8 @@ function addGuideSheet(wb) {
     '  · 필수 항목이 요구항목수보다 많으면 요구항목수를 필수 개수로 올려서 채점합니다.',
     '',
     '■ 모범답안에 여러 항목을 적을 때',
-    '  · 가장 정확한 방법은 항목1~5 열에 하나씩 나눠 적는 것입니다. "5가지" 문제면 항목 열 5개가 딱 맞습니다.',
+    '  · 가장 정확한 방법은 항목 열에 하나씩 나눠 적는 것입니다. "5가지" 문제면 항목 5칸을 쓰면 됩니다.',
+    '  · 항목 열은 ' + ITEM_COLUMNS + '개까지 있습니다. 정의와 대책이 섞인 복합 문제도 한 행에 담을 수 있습니다.',
     '  · 모범답안 칸에 몰아서 적는다면 셀 안에서 Alt+Enter 로 줄을 바꿔 항목을 나누세요.',
     '  · 줄바꿈 외에 "1. 2. 3.", "①②③", "- " 불릿, 문장 종결(…다.)도 항목 경계로 인식합니다.',
     '  · 쉼표(,)와 슬래시(/)는 구분자로 쓰지 마세요. "질소, 인 등 영양염류"나 "F/M비"처럼',
