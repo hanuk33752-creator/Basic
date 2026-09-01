@@ -282,7 +282,18 @@ function splitSentences(text) {
 
 /** 임의의 문장에서 핵심 명사구 키워드를 뽑는다. (엑셀 항목 열 등에서 사용) */
 export function keywordsFromText(text, limit = 5) {
-  return topTokens(text ?? '', limit);
+  const tokens = topTokens(text ?? '', limit);
+  if (tokens.length > 0) return tokens;
+
+  // 정답이 용언 하나뿐인 항목("커진다", "작아진다")은 명사구 추출로 아무것도 안 남는다.
+  // 사용자가 직접 적은 항목이므로 문구 자체를 키워드로 쓴다.
+  const fallback = stripItemMarker(text ?? '');
+  return fallback.length >= 2 ? [fallback] : [];
+}
+
+/** 항목 앞에 붙은 번호·불릿을 떼어낸다. ("1. 커진다" → "커진다") */
+function stripItemMarker(text) {
+  return text.trim().replace(/^(?:\d{1,2}\s*[.)]|[①②③④⑤⑥⑦⑧⑨⑩]|[-•*])\s*/, '').trim();
 }
 
 function topTokens(text, limit) {

@@ -91,3 +91,40 @@ test('필수 항목 수가 N보다 많으면 N을 필수 개수로 올린다', (
   assert.equal(r.credited, 2);
   assert.equal(scoreOf(r.credited / r.effectiveRequiredCount), 3.5);
 });
+
+/* ── 번호로 답이 대응되는 문제 ("1. 커진다 / 2. 작아진다") ── */
+
+import { numberedGroups, splitNumberedAnswer } from '../src/services/grading.js';
+
+test('모든 항목에 서로 다른 번호가 붙어야 번호형으로 본다', () => {
+  assert.deepEqual(numberedGroups([{ label: '1. 커진다' }, { label: '2. 작아진다' }]), [1, 2]);
+  assert.deepEqual(numberedGroups([{ label: '1) 가' }, { label: '2) 나' }, { label: '3) 다' }]), [1, 2, 3]);
+
+  assert.equal(numberedGroups([{ label: '1. 커진다' }, { label: '작아진다' }]), null, '하나라도 번호가 없으면 아님');
+  assert.equal(numberedGroups([{ label: '1. 가' }, { label: '1. 나' }]), null, '번호가 겹치면 아님');
+  assert.equal(numberedGroups([{ label: '사상균 증식' }]), null);
+});
+
+test('답안을 번호별 조각으로 나눈다', () => {
+  const segments = splitNumberedAnswer('1. 커진다 2. 작아진다 3. 커진다');
+  assert.equal(segments.size, 3);
+  assert.equal(segments.get(1).trim(), '커진다');
+  assert.equal(segments.get(2).trim(), '작아진다');
+  assert.equal(segments.get(3).trim(), '커진다');
+});
+
+test('줄바꿈·쉼표로 구분해도 번호를 찾는다', () => {
+  const segments = splitNumberedAnswer('1) 커진다\n2) 작아진다');
+  assert.equal(segments.get(1).trim(), '커진다');
+  assert.equal(segments.get(2).trim(), '작아진다');
+});
+
+test('번호가 없으면 조각이 나오지 않는다', () => {
+  assert.equal(splitNumberedAnswer('커진다, 작아진다, 커진다').size, 0);
+});
+
+test('일부 번호만 답해도 그 번호만 잡는다', () => {
+  const segments = splitNumberedAnswer('2. 작아진다 3. 커진다');
+  assert.equal(segments.size, 2);
+  assert.equal(segments.has(1), false);
+});

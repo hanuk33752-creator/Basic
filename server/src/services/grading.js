@@ -196,13 +196,25 @@ function gradeLocally(question, groups, answer, isFlat) {
     return buildFlatResult(question, keywords, matched, null, 'local');
   }
 
+  // "1. 커진다 / 2. 작아진다" 처럼 번호로 답이 대응되는 문제는 번호별로 따로 본다.
+  // 그렇지 않으면 답안 어딘가에 그 단어만 있으면 다 맞은 것으로 처리된다.
+  const itemNumbers = numberedGroups(groups);
+  const answerSegments = itemNumbers ? splitNumberedAnswer(answer) : null;
+  const usePositions = answerSegments !== null && answerSegments.size >= 2;
+
   // 항목 인정 조건: 키워드의 절반 이상이 등장하고, 그중 하나 이상은 이 항목에서만 쓰이는 키워드일 것.
   // 여러 항목에 공통으로 들어간 단어(제거, 관리 …)만 맞혔다면 그 항목을 쓴 것으로 보지 않는다.
   const shared = sharedKeywords(groups);
   const matchedIndexes = [];
   groups.forEach((g, i) => {
     if (g.keywords.length === 0) return;
-    const matched = g.keywords.filter((k) => containsKeyword(normalizedAnswer, k));
+
+    // 번호형이면 그 번호에 해당하는 답안 조각 안에서만 찾는다.
+    const haystack = usePositions
+      ? normalize(answerSegments.get(itemNumbers[i]) ?? '')
+      : normalizedAnswer;
+
+    const matched = g.keywords.filter((k) => containsKeyword(haystack, k));
     if (matched.length / g.keywords.length < 0.5) return;
 
     const distinctive = g.keywords.filter((k) => !shared.has(normalize(k)));
@@ -216,6 +228,37 @@ function gradeLocally(question, groups, answer, isFlat) {
 
 function normalize(text) {
   return text.toLowerCase().replace(/\s+/g, '');
+}
+
+/**
+ * 모든 항목이 "1.", "2)" 같은 번호로 시작하고 번호가 서로 다르면 그 번호 배열을,
+ * 아니면 null 을 돌려준다. 번호형 문제를 가려내기 위한 것이다.
+ */
+export function numberedGroups(groups) {
+  const numbers = groups.map((g) => {
+    const match = /^\s*(\d{1,2})\s*[.)]/.exec(g.label ?? '');
+    return match ? Number(match[1]) : null;
+  });
+  if (numbers.length === 0 || numbers.some((n) => n === null)) return null;
+  if (new Set(numbers).size !== numbers.length) return null;
+  return numbers;
+}
+
+/** 답안을 "1. …", "2. …" 조각으로 나눈다. 번호가 없으면 빈 Map. */
+export function splitNumberedAnswer(answer) {
+  const pattern = /(?:^|[\s,;·])(\d{1,2})\s*[.)]\s*/g;
+  const marks = [];
+  let match;
+  while ((match = pattern.exec(answer)) !== null) {
+    marks.push({ no: Number(match[1]), from: match.index, to: pattern.lastIndex });
+  }
+
+  const segments = new Map();
+  marks.forEach((mark, i) => {
+    const end = i + 1 < marks.length ? marks[i + 1].from : answer.length;
+    segments.set(mark.no, answer.slice(mark.to, end));
+  });
+  return segments;
 }
 
 /** 두 개 이상의 항목에 함께 등장하는 키워드 집합. 이런 키워드는 항목을 변별하지 못한다. */

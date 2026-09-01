@@ -280,6 +280,36 @@ test('전체 흐름: 팩 생성 → 문제 등록 → 출제 → 채점 → 오�
     assert.equal(missing.status, 404);
   });
 
+  await t.test('번호형 문제는 번호별로 대응시켜 채점한다', async () => {
+    const numbered = await call('POST', '/questions', {
+      questionText: '1. 입자가 작을수록? 2. 온도가 낮아질수록? 3. 압력이 낮아질수록?',
+      requiredCount: 3,
+      sourceText: '1. 커진다\n2. 작아진다\n3. 커진다',
+      groups: [
+        { label: '1. 커진다', keywords: ['커진다'] },
+        { label: '2. 작아진다', keywords: ['작아진다'] },
+        { label: '3. 커진다', keywords: ['커진다'] },
+      ],
+    });
+
+    const grade = async (answer) => {
+      const { results } = await call('POST', '/submit', {
+        mode: 'practice',
+        answers: [{ question_id: numbered.question_id, answer_text: answer }],
+      });
+      return results[0];
+    };
+
+    assert.equal((await grade('1. 커진다 2. 작아진다 3. 커진다')).score, 5);
+    assert.equal((await grade('1. 커진다 2. 커진다 3. 커진다')).credited_count, 2, '2번만 틀림');
+    const allWrong = await grade('1. 작아진다 2. 커진다 3. 작아진다');
+    assert.equal(allWrong.credited_count, 0, '전부 오답인데 만점이 나오면 안 된다');
+    assert.equal(allWrong.verdict, 'X');
+    assert.equal((await grade('2. 작아진다 3. 커진다')).credited_count, 2, '답하지 않은 번호는 인정하지 않는다');
+
+    await call('DELETE', `/questions/${numbered.question_id}`);
+  });
+
   await t.test('오답노트는 X+△를 누적하고 오답 많은 순으로 정렬한다', async () => {
     const notes = await call('GET', '/notes?period=all');
     assert.equal(notes.rows.length, 2);
