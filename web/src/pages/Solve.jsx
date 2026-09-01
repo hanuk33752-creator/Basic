@@ -43,7 +43,7 @@ export default function Solve() {
         answer_text: answers[q.question_id] ?? '',
       }));
       const data = await api.submitAnswers(payload, mode);
-      navigate('/result', { state: data, replace: true });
+      navigate('/result', { state: { ...data, count }, replace: true });
     } catch (e) {
       setError(e.message);
       setStatus('ready');

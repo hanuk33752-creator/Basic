@@ -121,7 +121,13 @@ function hydrate(q) {
     'SELECT * FROM reference_material WHERE question_id = ? ORDER BY reference_id',
     q.question_id
   );
-  return { ...q, keyword_groups: groups, references };
+  return {
+    ...q,
+    keyword_groups: groups,
+    references,
+    // 랜덤 출제 대상인지. 화면은 이 값만 보면 된다 (SQL 의 GRADABLE 과 같은 규칙).
+    is_gradable: groups.some((g) => g.keywords.length > 0),
+  };
 }
 
 /**
@@ -198,17 +204,21 @@ function writeGroups(questionId, requiredCount, groups) {
     );
     return;
   }
-  groups.forEach((g, i) => {
-    run(
-      `INSERT INTO keyword_group (question_id, group_index, label, keywords, is_flat, is_required)
-       VALUES (?, ?, ?, ?, 0, ?)`,
-      questionId,
-      i,
-      g.label ?? null,
-      JSON.stringify(g.keywords ?? []),
-      g.is_required ? 1 : 0
-    );
-  });
+  // 키워드가 없는 그룹은 채점에 쓸 수 없으므로 저장하지 않는다.
+  // (저장하면 '채점 기준 없음' 판정이 화면과 서버에서 어긋난다)
+  groups
+    .filter((g) => (g.keywords ?? []).length > 0)
+    .forEach((g, i) => {
+      run(
+        `INSERT INTO keyword_group (question_id, group_index, label, keywords, is_flat, is_required)
+         VALUES (?, ?, ?, ?, 0, ?)`,
+        questionId,
+        i,
+        g.label ?? null,
+        JSON.stringify(g.keywords),
+        g.is_required ? 1 : 0
+      );
+    });
 }
 
 export function deleteQuestion(questionId) {

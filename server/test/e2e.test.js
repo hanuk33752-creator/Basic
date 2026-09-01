@@ -104,6 +104,37 @@ test('전체 흐름: 팩 생성 → 문제 등록 → 출제 → 채점 → 오�
     assert.equal(after.packs.find((p) => p.name === '수질환경기사').question_count, 2);
   });
 
+  await t.test('키워드가 빈 그룹은 저장하지 않고, 출제 제외 판정이 화면과 서버에서 같다', async () => {
+    // 로컬 추출이 토큰을 하나도 못 뽑으면 키워드가 빈 그룹이 넘어올 수 있다.
+    const empty = await call('POST', '/questions', {
+      questionText: '키워드가 빈 그룹만 있는 문제입니다.',
+      requiredCount: 1,
+      sourceText: '참고자료는 있다',
+      groups: [{ label: '항목', keywords: [] }],
+    });
+    assert.equal(empty.keyword_groups.length, 0, '쓸 수 없는 그룹은 저장하지 않는다');
+    assert.equal(empty.is_gradable, false);
+
+    // 서버 집계와 목록이 서로 어긋나지 않아야 한다.
+    const { packs } = await call('GET', '/packs');
+    const pack = packs.find((p) => p.is_active);
+    const { questions } = await call('GET', '/questions');
+    const { questions: incomplete } = await call('GET', '/questions/incomplete');
+
+    assert.equal(
+      questions.filter((q) => !q.is_gradable).length,
+      incomplete.length,
+      '화면이 세는 수와 서버 목록의 수가 같아야 한다'
+    );
+    assert.equal(
+      pack.question_count - pack.ready_count,
+      incomplete.length,
+      '홈 화면의 제외 개수와도 같아야 한다'
+    );
+
+    await call('DELETE', `/questions/${empty.question_id}`);
+  });
+
   await t.test('출제 응답에 채점 기준과 모범답안이 새지 않는다', async () => {
     const quiz = await call('GET', '/quiz?count=5');
     assert.equal(quiz.questions.length, 2, '등록된 문제가 부족하면 있는 만큼만 출제');

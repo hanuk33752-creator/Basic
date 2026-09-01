@@ -17,7 +17,8 @@ export default function Result() {
     );
   }
 
-  const { results, summary, mode = 'exam' } = state;
+  const { results, summary, mode = 'exam', count = results.length } = state;
+  const modeName = mode === 'exam' ? '시험 모드' : '연습 모드';
   const [counted, setCounted] = useState(
     () => Object.fromEntries(results.map((r) => [r.attempt_id, mode === 'exam']))
   );
@@ -70,7 +71,13 @@ export default function Result() {
       ))}
 
       <div className="btn-row">
-        <button className="btn primary" onClick={() => navigate('/start')}>다시 풀기</button>
+        <button
+          className="btn primary"
+          onClick={() => navigate(`/solve?count=${count}&mode=${mode}`, { replace: true })}
+        >
+          새 문제 풀기 ({modeName} · {count}문제)
+        </button>
+        <button className="btn" onClick={() => navigate('/start')}>모드·개수 바꾸기</button>
         <Link className="btn" to="/notes">오답노트 보기</Link>
         <Link className="btn ghost" to="/">홈으로</Link>
       </div>

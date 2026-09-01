@@ -27,13 +27,12 @@ export default function Manage() {
     loadQuestions().catch((e) => setError(e.message));
   }, [loadQuestions]);
 
-  const incompleteCount = useMemo(
-    () => questions.filter((q) => q.keyword_groups.length === 0).length,
-    [questions]
-  );
+  // 출제 가능 여부는 서버가 알려준 is_gradable 을 그대로 쓴다.
+  // 화면에서 따로 판정하면 서버의 집계와 어긋난다.
+  const incompleteCount = useMemo(() => questions.filter((q) => !q.is_gradable).length, [questions]);
   const filtered = useMemo(() => {
-    if (filter === 'ready') return questions.filter((q) => q.keyword_groups.length > 0);
-    if (filter === 'incomplete') return questions.filter((q) => q.keyword_groups.length === 0);
+    if (filter === 'ready') return questions.filter((q) => q.is_gradable);
+    if (filter === 'incomplete') return questions.filter((q) => !q.is_gradable);
     return questions;
   }, [questions, filter]);
 
@@ -230,7 +229,7 @@ export default function Manage() {
               <div className="q-meta">
                 {q.source_no ? `${q.source_no}번` : `#${q.question_id}`}
                 {q.required_count ? ` · 요구 항목 ${q.required_count}개` : ' · 일반 서술형'}
-                {q.keyword_groups.length === 0 && (
+                {!q.is_gradable && (
                   <span className="tag miss" style={{ marginLeft: 8 }}>채점 기준 없음 · 출제 제외</span>
                 )}
               </div>
