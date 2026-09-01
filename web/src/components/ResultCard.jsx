@@ -28,16 +28,14 @@ export default function ResultCard({ result, index, total, counted = null, onTog
       <p className="q-text">{result.question_text}</p>
 
       {result.answer_text !== undefined && (
-        <details style={{ marginBottom: 10 }}>
-          <summary className="muted">내가 쓴 답안 보기</summary>
-          <p className="q-text" style={{ marginTop: 8 }}>
-            {result.answer_text.trim() || '(작성하지 않음)'}
-          </p>
+        <details className="answer-block mine" open>
+          <summary>내가 쓴 답안</summary>
+          <p className="q-text">{result.answer_text.trim() || '(작성하지 않음)'}</p>
         </details>
       )}
 
       {result.reference_text?.trim() && (
-        <details className="model-answer" open>
+        <details className="answer-block model" open>
           <summary>모범답안</summary>
           <p className="q-text">{result.reference_text}</p>
         </details>

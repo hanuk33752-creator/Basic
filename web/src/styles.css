@@ -199,13 +199,16 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 }
 .mode-badge.exam { background: var(--primary-soft); color: var(--primary); border-color: #c7d7fe; }
 
-/* 채점 결과의 모범답안 */
-.model-answer {
-  margin: 12px 0 4px; padding: 12px 14px;
-  background: #f8fafc; border: 1px solid var(--border); border-radius: 10px;
+/* 채점 결과의 내 답안 / 모범답안 블록 */
+.answer-block {
+  margin: 10px 0; padding: 10px 14px; border-radius: 10px;
+  border: 1px solid var(--border); border-left-width: 3px;
 }
-.model-answer > summary {
+.answer-block > summary {
   cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted);
 }
-.model-answer > summary::marker { color: var(--muted); }
-.model-answer .q-text { margin: 10px 0 0; font-size: 14px; }
+.answer-block > summary::marker { color: var(--muted); }
+.answer-block .q-text { margin: 8px 0 0; font-size: 14px; }
+.answer-block.mine { background: #f8fafc; border-left-color: #94a3b8; }
+.answer-block.model { background: #f4fbf6; border-left-color: var(--ok); }
+.answer-block.model > summary { color: #15803d; }

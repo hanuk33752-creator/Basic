@@ -143,7 +143,7 @@ function History({ questionId, period, onClose }) {
       <p className="q-text" style={{ marginTop: 10 }}>{detail.question.question_text}</p>
 
       {detail.question.references?.length > 0 && (
-        <details className="model-answer" open>
+        <details className="answer-block model" open>
           <summary>모범답안</summary>
           <p className="q-text">{detail.question.references.map((r) => r.source_text).join('\n\n')}</p>
         </details>
@@ -161,7 +161,10 @@ function History({ questionId, period, onClose }) {
                 <strong style={{ marginLeft: 8 }}>{a.score} / 5점</strong>
               </span>
             </div>
-            <p className="q-text" style={{ margin: '8px 0' }}>{a.answer_text.trim() || '(작성하지 않음)'}</p>
+            <details className="answer-block mine" open>
+              <summary>내가 쓴 답안</summary>
+              <p className="q-text">{a.answer_text.trim() || '(작성하지 않음)'}</p>
+            </details>
             <div>
               {a.matched_groups.map((g, i) => <span className="tag hit" key={`m${i}`}>{g.label}</span>)}
               {a.missing_groups.map((g, i) => <span className="tag miss" key={`x${i}`}>{g.label}</span>)}
