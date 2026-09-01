@@ -170,6 +170,65 @@ test('전체 흐름: 팩 생성 → 문제 등록 → 출제 → 채점 → 오�
     assert.equal(results[0].verdict, 'TRIANGLE');
   });
 
+  await t.test('연습 모드 시도는 채점은 되지만 오답노트에 쌓이지 않는다', async () => {
+    const before = await call('GET', '/notes?period=all');
+    const beforeCount = before.totals.attempt_count;
+
+    const { results, mode } = await call('POST', '/submit', {
+      mode: 'practice',
+      answers: [{ question_id: 1, answer_text: '전혀 모르겠습니다' }],
+    });
+    assert.equal(mode, 'practice');
+    assert.equal(results[0].verdict, 'X', '채점은 정상적으로 이뤄진다');
+    assert.equal(results[0].counts_in_notes, false);
+
+    const after = await call('GET', '/notes?period=all');
+    assert.equal(after.totals.attempt_count, beforeCount, '오답노트 집계가 늘지 않는다');
+  });
+
+  await t.test('채점 후 오답노트에서 뺐다가 다시 넣을 수 있다', async () => {
+    const { results } = await call('POST', '/submit', {
+      mode: 'exam',
+      answers: [{ question_id: 1, answer_text: '모르겠습니다' }],
+    });
+    const attemptId = results[0].attempt_id;
+    assert.equal(results[0].counts_in_notes, true);
+
+    const withAttempt = await call('GET', '/notes?period=all');
+    const wrongWith = withAttempt.rows.find((r) => r.question_id === 1).wrong_count;
+
+    await call('PATCH', `/attempts/${attemptId}`, { counts_in_notes: false });
+    const without = await call('GET', '/notes?period=all');
+    assert.equal(
+      without.rows.find((r) => r.question_id === 1).wrong_count,
+      wrongWith - 1,
+      '뺀 시도만큼 오답 횟수가 줄어든다'
+    );
+
+    await call('PATCH', `/attempts/${attemptId}`, { counts_in_notes: true });
+    const again = await call('GET', '/notes?period=all');
+    assert.equal(again.rows.find((r) => r.question_id === 1).wrong_count, wrongWith);
+
+    // 다시 빼서 이후 테스트에 영향을 주지 않도록 한다.
+    await call('PATCH', `/attempts/${attemptId}`, { counts_in_notes: false });
+  });
+
+  await t.test('잘못된 제외 요청은 거부된다', async () => {
+    const bad = await fetch(`${BASE}/attempts/1`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ counts_in_notes: 'yes' }),
+    });
+    assert.equal(bad.status, 400);
+
+    const missing = await fetch(`${BASE}/attempts/999999`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ counts_in_notes: false }),
+    });
+    assert.equal(missing.status, 404);
+  });
+
   await t.test('오답노트는 X+△를 누적하고 오답 많은 순으로 정렬한다', async () => {
     const notes = await call('GET', '/notes?period=all');
     assert.equal(notes.rows.length, 2);

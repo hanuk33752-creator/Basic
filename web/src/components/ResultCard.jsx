@@ -5,7 +5,7 @@ export const VERDICT_LABEL = { O: 'O 정답', TRIANGLE: '△ 부분정답', X: '
 export const VERDICT_MARK = { O: 'O', TRIANGLE: '△', X: 'X' };
 
 /** 채점 결과 1건. 스펙 6장의 피드백 형식을 그대로 따른다. */
-export default function ResultCard({ result, index, total }) {
+export default function ResultCard({ result, index, total, counted = null, onToggleCounted = null }) {
   const isGroup = result.mode === 'group';
   return (
     <section className="card">
@@ -89,6 +89,19 @@ export default function ResultCard({ result, index, total }) {
           💬 {result.feedback}
         </p>
       )}
+      {onToggleCounted && (
+        <div className="btn-row" style={{ marginTop: 12 }}>
+          <button
+            type="button"
+            className={`btn sm${counted ? '' : ' primary'}`}
+            onClick={onToggleCounted}
+          >
+            {counted ? '오답노트에서 빼기' : '오답노트에 다시 넣기'}
+          </button>
+          {!counted && <span className="muted">이 시도는 오답노트에 집계되지 않습니다.</span>}
+        </div>
+      )}
+
       {result.graded_by === 'local' && (
         <p className="muted" style={{ marginTop: 10 }}>
           키워드 대조로 채점했습니다. 같은 뜻을 다른 말로 쓰면 인정되지 않을 수 있으니,

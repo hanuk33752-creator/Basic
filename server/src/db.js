@@ -16,7 +16,11 @@ migrate();
 
 /** 이미 만들어진 DB에 뒤늦게 추가된 열을 채워 넣는다. (CREATE TABLE IF NOT EXISTS 로는 안 붙으므로) */
 function migrate() {
-  const added = [['keyword_group', 'is_required', 'INTEGER NOT NULL DEFAULT 0']];
+  const added = [
+    ['keyword_group', 'is_required', 'INTEGER NOT NULL DEFAULT 0'],
+    ['attempt', 'mode', "TEXT NOT NULL DEFAULT 'exam'"],
+    ['attempt', 'counts_in_notes', 'INTEGER NOT NULL DEFAULT 1'],
+  ];
   for (const [table, column, definition] of added) {
     const columns = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
     if (!columns.includes(column)) {

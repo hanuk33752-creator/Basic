@@ -178,3 +178,23 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 }
 .nav-stop:hover:not(:disabled) { border-color: var(--bad); color: var(--bad); }
 .nav-stop:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 연습/시험 모드 선택 */
+.mode-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 8px; }
+.mode-card {
+  text-align: left; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px; cursor: pointer; font-family: inherit;
+  box-shadow: var(--shadow);
+}
+.mode-card:hover { border-color: var(--primary); }
+.mode-card.selected { border-color: var(--primary); background: var(--primary-soft); }
+.mode-name { display: block; font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.mode-card.selected .mode-name { color: var(--primary); }
+.mode-hint { display: block; font-size: 13px; color: var(--muted); line-height: 1.45; }
+
+/* 연습 모드 표시 배지 */
+.mode-badge {
+  display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 10px;
+  border-radius: 999px; background: #f1f5f9; color: #475569; border: 1px solid var(--border);
+}
+.mode-badge.exam { background: var(--primary-soft); color: var(--primary); border-color: #c7d7fe; }

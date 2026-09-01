@@ -32,13 +32,20 @@ router.get('/quiz', (req, res) => {
   });
 });
 
-/** 답안 일괄 제출 → 채점 → 시도 기록 저장 */
+const MODES = ['practice', 'exam'];
+
+/**
+ * 답안 일괄 제출 → 채점 → 시도 기록 저장
+ * 연습 모드(practice)로 낸 답안은 채점은 하되 오답노트에 누적하지 않는다.
+ */
 router.post('/submit', async (req, res, next) => {
   try {
     const answers = req.body?.answers;
     if (!Array.isArray(answers) || answers.length === 0) {
       return res.status(400).json({ error: '제출할 답안이 없습니다.' });
     }
+    const mode = MODES.includes(req.body?.mode) ? req.body.mode : 'exam';
+    const countsInNotes = mode === 'exam' ? 1 : 0;
 
     const results = [];
     for (const item of answers) {
@@ -49,8 +56,9 @@ router.post('/submit', async (req, res, next) => {
 
       const { lastInsertRowid } = run(
         `INSERT INTO attempt
-           (question_id, answer_text, score, ratio, verdict, matched_groups, missing_groups, feedback, graded_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (question_id, answer_text, score, ratio, verdict, matched_groups, missing_groups,
+            feedback, graded_by, mode, counts_in_notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         question.question_id,
         answerText,
         graded.score,
@@ -59,7 +67,9 @@ router.post('/submit', async (req, res, next) => {
         JSON.stringify(graded.matched_groups),
         JSON.stringify(graded.missing_groups),
         graded.feedback ?? null,
-        graded.graded_by
+        graded.graded_by,
+        mode,
+        countsInNotes
       );
       const saved = get('SELECT submitted_at FROM attempt WHERE attempt_id = ?', Number(lastInsertRowid));
 
@@ -70,6 +80,8 @@ router.post('/submit', async (req, res, next) => {
         year_round: question.year_round,
         answer_text: answerText,
         submitted_at: saved?.submitted_at,
+        mode,
+        counts_in_notes: countsInNotes === 1,
         ...graded,
       });
     }
@@ -79,6 +91,7 @@ router.post('/submit', async (req, res, next) => {
     const totalScore = results.reduce((sum, r) => sum + r.score, 0);
     res.json({
       results,
+      mode,
       summary: {
         count: results.length,
         total_score: Math.round(totalScore * 2) / 2,
@@ -91,6 +104,20 @@ router.post('/submit', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+/** 채점이 끝난 시도를 오답노트 집계에 넣거나 뺀다. (키워드 채점이 잘못 판정한 경우 등) */
+router.patch('/attempts/:attemptId', (req, res) => {
+  const attemptId = Number(req.params.attemptId);
+  const include = req.body?.counts_in_notes;
+  if (typeof include !== 'boolean') {
+    return res.status(400).json({ error: 'counts_in_notes 는 true 또는 false 여야 합니다.' });
+  }
+  const attempt = get('SELECT attempt_id FROM attempt WHERE attempt_id = ?', attemptId);
+  if (!attempt) return res.status(404).json({ error: '시도 기록을 찾을 수 없습니다.' });
+
+  run('UPDATE attempt SET counts_in_notes = ? WHERE attempt_id = ?', include ? 1 : 0, attemptId);
+  res.json({ attempt_id: attemptId, counts_in_notes: include });
 });
 
 export default router;

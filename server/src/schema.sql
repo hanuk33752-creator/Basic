@@ -57,6 +57,9 @@ CREATE TABLE IF NOT EXISTS attempt (
   missing_groups TEXT    NOT NULL,   -- JSON 배열
   feedback       TEXT,
   graded_by      TEXT    NOT NULL DEFAULT 'claude', -- 'claude' | 'local'
+  mode           TEXT    NOT NULL DEFAULT 'exam',   -- 'practice'(연습) | 'exam'(시험)
+  -- 0이면 오답노트 집계에서 제외한다. 연습 모드이거나, 채점 후 사용자가 직접 뺀 경우.
+  counts_in_notes INTEGER NOT NULL DEFAULT 1,
   submitted_at   TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 CREATE INDEX IF NOT EXISTS idx_attempt_question ON attempt(question_id);

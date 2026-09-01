@@ -6,6 +6,7 @@ export default function Solve() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const count = Number(params.get('count')) || 1;
+  const mode = params.get('mode') === 'exam' ? 'exam' : 'practice';
 
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
@@ -41,7 +42,7 @@ export default function Solve() {
         question_id: q.question_id,
         answer_text: answers[q.question_id] ?? '',
       }));
-      const data = await api.submitAnswers(payload);
+      const data = await api.submitAnswers(payload, mode);
       navigate('/result', { state: data, replace: true });
     } catch (e) {
       setError(e.message);
@@ -57,9 +58,17 @@ export default function Solve() {
     <main className="page">
       <h1>문제 풀이</h1>
       <p className="sub">
+        <span className={`mode-badge${mode === 'exam' ? ' exam' : ''}`}>
+          {mode === 'exam' ? '시험 모드' : '연습 모드'}
+        </span>{' '}
         {questions.length}문제 · 작성 {answered}/{questions.length}
         {questions.length < count && ' · 등록된 문제가 부족해 있는 만큼만 출제했습니다.'}
       </p>
+      {mode === 'practice' && (
+        <p className="muted" style={{ marginTop: -12, marginBottom: 16 }}>
+          연습 모드입니다. 채점은 되지만 오답노트에는 기록되지 않습니다.
+        </p>
+      )}
       {error && <div className="error">{error}</div>}
 
       {questions.length === 0 ? (

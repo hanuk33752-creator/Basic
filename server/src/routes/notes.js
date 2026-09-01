@@ -45,7 +45,7 @@ router.get('/notes', (req, res) => {
        MAX(a.submitted_at)                                        AS last_attempt_at
      FROM attempt a
      JOIN question q ON q.question_id = a.question_id
-     WHERE q.pack_id = ? ${clause}
+     WHERE q.pack_id = ? AND a.counts_in_notes = 1 ${clause}
      GROUP BY q.question_id
      HAVING wrong_count > 0
      ORDER BY wrong_count DESC, x_count DESC, last_attempt_at DESC`,
@@ -60,7 +60,7 @@ router.get('/notes', (req, res) => {
        SUM(CASE WHEN a.verdict = 'X' THEN 1 ELSE 0 END)        AS x_count
      FROM attempt a
      JOIN question q ON q.question_id = a.question_id
-     WHERE q.pack_id = ? ${clause}`,
+     WHERE q.pack_id = ? AND a.counts_in_notes = 1 ${clause}`,
     pack.pack_id
   );
 
@@ -83,7 +83,7 @@ router.get('/notes/:questionId', (req, res) => {
 
   const attempts = all(
     `SELECT * FROM attempt a
-     WHERE a.question_id = ? ${periodClause(period)}
+     WHERE a.question_id = ? AND a.counts_in_notes = 1 ${periodClause(period)}
      ORDER BY a.submitted_at DESC, a.attempt_id DESC`,
     questionId
   ).map((a) => ({

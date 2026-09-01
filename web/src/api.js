@@ -38,7 +38,9 @@ export const api = {
   // 출제·채점
   startQuiz: (count, packId) =>
     request('GET', `/quiz?count=${count}${packId ? `&packId=${packId}` : ''}`),
-  submitAnswers: (answers) => request('POST', '/submit', { answers }),
+  submitAnswers: (answers, mode = 'exam') => request('POST', '/submit', { answers, mode }),
+  setAttemptCounted: (attemptId, counted) =>
+    request('PATCH', `/attempts/${attemptId}`, { counts_in_notes: counted }),
 
   // 오답노트
   listNotes: (period = 'all', packId) =>
