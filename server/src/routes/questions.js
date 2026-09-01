@@ -30,7 +30,7 @@ router.get('/:questionId', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { packId, questionText, yearRound, requiredCount, sourceText, groups } = req.body ?? {};
+  const { packId, questionText, yearRound, sourceNo, requiredCount, sourceText, groups } = req.body ?? {};
   const targetPack = Number(packId) || repo.getActivePack()?.pack_id;
   if (!targetPack) return res.status(400).json({ error: '자격증 팩을 먼저 만들어 주세요.' });
   if (!questionText?.trim()) return res.status(400).json({ error: '문제 본문이 필요합니다.' });
@@ -39,6 +39,7 @@ router.post('/', (req, res) => {
       packId: targetPack,
       questionText: questionText.trim(),
       yearRound: yearRound ?? null,
+      sourceNo: sourceNo ?? null,
       requiredCount: requiredCount ?? null,
       sourceText: sourceText ?? null,
       groups: groups ?? [],

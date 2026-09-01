@@ -198,3 +198,14 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
   border-radius: 999px; background: #f1f5f9; color: #475569; border: 1px solid var(--border);
 }
 .mode-badge.exam { background: var(--primary-soft); color: var(--primary); border-color: #c7d7fe; }
+
+/* 채점 결과의 모범답안 */
+.model-answer {
+  margin: 12px 0 4px; padding: 12px 14px;
+  background: #f8fafc; border: 1px solid var(--border); border-radius: 10px;
+}
+.model-answer > summary {
+  cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted);
+}
+.model-answer > summary::marker { color: var(--muted); }
+.model-answer .q-text { margin: 10px 0 0; font-size: 14px; }

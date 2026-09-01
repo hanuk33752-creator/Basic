@@ -228,8 +228,7 @@ export default function Manage() {
           {filtered.slice(0, limit).map((q) => (
             <div className="card" key={q.question_id}>
               <div className="q-meta">
-                #{q.question_id}
-                {q.year_round ? ` · ${q.year_round}` : ''}
+                {q.source_no ? `${q.source_no}번` : `#${q.question_id}`}
                 {q.required_count ? ` · 요구 항목 ${q.required_count}개` : ' · 일반 서술형'}
                 {q.keyword_groups.length === 0 && (
                   <span className="tag miss" style={{ marginLeft: 8 }}>채점 기준 없음 · 출제 제외</span>

@@ -104,6 +104,7 @@ export async function readQuestionWorkbook(buffer) {
 
     candidates.push({
       question_text: questionText,
+      source_no: noText || null,
       source_text: answerText || itemsAsSource(items),
       required_count: required,
       required_count_locked: !!requiredRaw,

@@ -203,3 +203,25 @@ test('항목 8칸을 모두 채운 복합 문제를 읽는다', async () => {
     ['저비저항: 재비산 발생', '고비저항: 역전리 발생']
   );
 });
+
+test('엑셀의 번호 열을 문제 번호로 읽는다', async () => {
+  const { candidates } = await fillTemplate((sheet, top) => {
+    const row = sheet.getRow(top);
+    row.getCell(1).value = 17;
+    row.getCell(2).value = '번호가 붙은 문제입니다.';
+    row.getCell(3).value = '모범답안입니다.';
+  });
+  assert.equal(candidates[0].source_no, '17');
+});
+
+test('번호를 비워도 문제는 정상 등록된다', async () => {
+  const { candidates } = await fillTemplate((sheet, top) => {
+    const row = sheet.getRow(top + 1); // 번호가 미리 채워지지 않은 행
+    row.getCell(1).value = null;
+    row.getCell(2).value = '번호 없는 문제입니다.';
+    row.getCell(3).value = '모범답안입니다.';
+  });
+  const target = candidates.find((c) => c.question_text.startsWith('번호 없는'));
+  assert.ok(target);
+  assert.equal(target.source_no, null);
+});

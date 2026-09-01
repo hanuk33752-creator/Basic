@@ -4,6 +4,11 @@ const shorten = (text = '') => (text.length > LABEL_LIMIT ? `${text.slice(0, LAB
 export const VERDICT_LABEL = { O: 'O 정답', TRIANGLE: '△ 부분정답', X: 'X 오답' };
 export const VERDICT_MARK = { O: 'O', TRIANGLE: '△', X: 'X' };
 
+/** 사용자가 엑셀에 적은 문제 번호를 우선 쓰고, 없으면 내부 번호를 쓴다. */
+export function questionLabel(q) {
+  return q.source_no ? `${q.source_no}번` : `#${q.question_id}`;
+}
+
 /** 채점 결과 1건. 스펙 6장의 피드백 형식을 그대로 따른다. */
 export default function ResultCard({ result, index, total, counted = null, onToggleCounted = null }) {
   const isGroup = result.mode === 'group';
@@ -12,8 +17,7 @@ export default function ResultCard({ result, index, total, counted = null, onTog
       <div className="card-head">
         <span className="q-meta" style={{ margin: 0 }}>
           문제 {index + 1}
-          {total ? ` / ${total}` : ''}
-          {result.year_round ? ` · ${result.year_round}` : ''}
+          {total ? ` / ${total}` : ''} · {questionLabel(result)}
         </span>
         <span>
           <span className={`verdict ${result.verdict}`}>{VERDICT_MARK[result.verdict]}</span>
@@ -29,6 +33,13 @@ export default function ResultCard({ result, index, total, counted = null, onTog
           <p className="q-text" style={{ marginTop: 8 }}>
             {result.answer_text.trim() || '(작성하지 않음)'}
           </p>
+        </details>
+      )}
+
+      {result.reference_text?.trim() && (
+        <details className="model-answer" open>
+          <summary>모범답안</summary>
+          <p className="q-text">{result.reference_text}</p>
         </details>
       )}
 

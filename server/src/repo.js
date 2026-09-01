@@ -133,17 +133,19 @@ export function saveQuestion({
   packId,
   questionText,
   yearRound = null,
+  sourceNo = null,
   requiredCount = null,
   sourceText = null,
   groups = [],
 }) {
   return tx(() => {
     const { lastInsertRowid } = run(
-      `INSERT INTO question (pack_id, question_text, year_round, max_score, required_count)
-       VALUES (?, ?, ?, 5, ?)`,
+      `INSERT INTO question (pack_id, question_text, year_round, source_no, max_score, required_count)
+       VALUES (?, ?, ?, ?, 5, ?)`,
       packId,
       questionText,
       yearRound,
+      sourceNo,
       requiredCount
     );
     const questionId = Number(lastInsertRowid);
@@ -155,14 +157,16 @@ export function saveQuestion({
   });
 }
 
-export function updateQuestion(questionId, { questionText, yearRound, requiredCount, sourceText, groups }) {
+export function updateQuestion(questionId, { questionText, yearRound, sourceNo, requiredCount, sourceText, groups }) {
   return tx(() => {
     const existing = get('SELECT * FROM question WHERE question_id = ?', questionId);
     if (!existing) return null;
     run(
-      'UPDATE question SET question_text = ?, year_round = ?, required_count = ? WHERE question_id = ?',
+      `UPDATE question SET question_text = ?, year_round = ?, source_no = ?, required_count = ?
+       WHERE question_id = ?`,
       questionText ?? existing.question_text,
       yearRound === undefined ? existing.year_round : yearRound,
+      sourceNo === undefined ? existing.source_no : sourceNo,
       requiredCount === undefined ? existing.required_count : requiredCount,
       questionId
     );

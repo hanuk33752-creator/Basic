@@ -95,8 +95,7 @@ export default function WrongNotes() {
                         : r.question_text}
                     </div>
                     <div className="muted">
-                      #{r.question_id}
-                      {r.year_round ? ` · ${r.year_round}` : ''}
+                      {r.source_no ? `${r.source_no}번` : `#${r.question_id}`}
                       {r.required_count ? ` · ${r.required_count}가지` : ''} · 시도 {r.attempt_count}회 ·
                       최근 {r.last_attempt_at}
                     </div>
@@ -138,10 +137,17 @@ function History({ questionId, period, onClose }) {
   return (
     <div className="card">
       <div className="card-head">
-        <strong>시도 이력 · 문제 #{questionId}</strong>
+        <strong>시도 이력</strong>
         <button className="btn sm ghost" onClick={onClose}>닫기</button>
       </div>
       <p className="q-text" style={{ marginTop: 10 }}>{detail.question.question_text}</p>
+
+      {detail.question.references?.length > 0 && (
+        <details className="model-answer" open>
+          <summary>모범답안</summary>
+          <p className="q-text">{detail.question.references.map((r) => r.source_text).join('\n\n')}</p>
+        </details>
+      )}
 
       {detail.attempts.length === 0 ? (
         <div className="empty">이 기간의 시도가 없습니다.</div>

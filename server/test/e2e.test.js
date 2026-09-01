@@ -104,14 +104,34 @@ test('전체 흐름: 팩 생성 → 문제 등록 → 출제 → 채점 → 오�
     assert.equal(after.packs.find((p) => p.name === '수질환경기사').question_count, 2);
   });
 
-  await t.test('출제 응답에 채점 기준이 새지 않는다', async () => {
+  await t.test('출제 응답에 채점 기준과 모범답안이 새지 않는다', async () => {
     const quiz = await call('GET', '/quiz?count=5');
     assert.equal(quiz.questions.length, 2, '등록된 문제가 부족하면 있는 만큼만 출제');
     assert.equal(quiz.available, 2);
     for (const q of quiz.questions) {
       assert.equal(q.keyword_groups, undefined);
       assert.equal(q.references, undefined);
+      assert.equal(q.reference_text, undefined, '풀기 전에는 모범답안을 주지 않는다');
     }
+  });
+
+  await t.test('채점 결과에는 모범답안과 문제 번호가 함께 온다', async () => {
+    const created = await call('POST', '/questions', {
+      questionText: '번호가 붙은 문제입니다.',
+      sourceNo: '2023-1',
+      sourceText: '이것이 모범답안 원문입니다.',
+      groups: [{ keywords: ['모범답안', '원문'] }],
+    });
+    assert.equal(created.source_no, '2023-1');
+
+    const { results } = await call('POST', '/submit', {
+      mode: 'practice',
+      answers: [{ question_id: created.question_id, answer_text: '모범답안 원문' }],
+    });
+    assert.equal(results[0].source_no, '2023-1');
+    assert.equal(results[0].reference_text, '이것이 모범답안 원문입니다.');
+
+    await call('DELETE', `/questions/${created.question_id}`);
   });
 
   await t.test('허용되지 않은 출제 개수는 거부된다', async () => {

@@ -33,8 +33,8 @@ router.get('/notes', (req, res) => {
   const rows = all(
     `SELECT
        q.question_id,
+       q.source_no,
        q.question_text,
-       q.year_round,
        q.required_count,
        COUNT(*)                                                   AS attempt_count,
        SUM(CASE WHEN a.verdict = 'X' THEN 1 ELSE 0 END)           AS x_count,

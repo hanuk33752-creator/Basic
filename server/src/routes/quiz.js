@@ -17,10 +17,11 @@ router.get('/quiz', (req, res) => {
 
   const questions = repo.randomQuestions(pack.pack_id, count).map((q) => ({
     question_id: q.question_id,
+    source_no: q.source_no,
     question_text: q.question_text,
-    year_round: q.year_round,
     max_score: q.max_score,
     required_count: q.required_count,
+    // 모범답안(references)과 채점 기준(keyword_groups)은 넣지 않는다.
   }));
 
   res.json({
@@ -76,8 +77,10 @@ router.post('/submit', async (req, res, next) => {
       results.push({
         attempt_id: Number(lastInsertRowid),
         question_id: question.question_id,
+        source_no: question.source_no,
         question_text: question.question_text,
-        year_round: question.year_round,
+        // 채점이 끝난 뒤에는 모범답안을 보여준다 (복습용)
+        reference_text: (question.references ?? []).map((r) => r.source_text).join('\n\n'),
         answer_text: answerText,
         submitted_at: saved?.submitted_at,
         mode,

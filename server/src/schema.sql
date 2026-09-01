@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS question (
   question_id    INTEGER PRIMARY KEY AUTOINCREMENT,
   pack_id        INTEGER NOT NULL REFERENCES cert_pack(pack_id) ON DELETE CASCADE,
   question_text  TEXT    NOT NULL,
-  year_round     TEXT,                       -- 연도/회차 (선택)
+  year_round     TEXT,                       -- 연도/회차 (선택, 현재 미사용)
+  source_no      TEXT,                       -- 엑셀 양식의 '번호' 열. 사용자가 붙인 문제 번호
   max_score      REAL    NOT NULL DEFAULT 5, -- 배점 5점 고정
   required_count INTEGER,                    -- N. "n가지 서술" 패턴이 없으면 NULL
   created_at     TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))

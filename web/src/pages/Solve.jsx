@@ -77,8 +77,7 @@ export default function Solve() {
         questions.map((q, i) => (
           <section className="card" key={q.question_id}>
             <div className="q-meta">
-              문제 {i + 1} / {questions.length}
-              {q.year_round ? ` · ${q.year_round}` : ''}
+              문제 {i + 1} / {questions.length} · {q.source_no ? `${q.source_no}번` : `#${q.question_id}`}
               {q.required_count ? ` · ${q.required_count}가지 요구` : ''} · 배점 {q.max_score}점
             </div>
             <p className="q-text">{q.question_text}</p>
