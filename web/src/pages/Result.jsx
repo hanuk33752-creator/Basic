@@ -71,15 +71,15 @@ export default function Result() {
       ))}
 
       <div className="btn-row">
+        <button className="btn" onClick={() => navigate('/start')}>모드·개수 바꾸기</button>
+        <Link className="btn" to="/notes">오답노트 보기</Link>
+        <Link className="btn ghost" to="/">홈으로</Link>
         <button
-          className="btn primary"
+          className="btn primary push-right"
           onClick={() => navigate(`/solve?count=${count}&mode=${mode}`, { replace: true })}
         >
           새 문제 풀기 ({modeName} · {count}문제)
         </button>
-        <button className="btn" onClick={() => navigate('/start')}>모드·개수 바꾸기</button>
-        <Link className="btn" to="/notes">오답노트 보기</Link>
-        <Link className="btn ghost" to="/">홈으로</Link>
       </div>
     </main>
   );
