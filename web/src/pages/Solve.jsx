@@ -82,6 +82,7 @@ export default function Solve() {
             </div>
             <p className="q-text">{q.question_text}</p>
             <textarea
+              className="answer-input"
               value={answers[q.question_id] ?? ''}
               placeholder={
                 q.required_count

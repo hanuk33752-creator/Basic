@@ -13,7 +13,7 @@ export function questionLabel(q) {
 export default function ResultCard({ result, index, total, counted = null, onToggleCounted = null }) {
   const isGroup = result.mode === 'group';
   return (
-    <section className="card">
+    <section className={`card result-card ${result.verdict}`}>
       <div className="card-head">
         <span className="q-meta" style={{ margin: 0 }}>
           문제 {index + 1}
@@ -21,7 +21,7 @@ export default function ResultCard({ result, index, total, counted = null, onTog
         </span>
         <span>
           <span className={`verdict ${result.verdict}`}>{VERDICT_MARK[result.verdict]}</span>
-          <strong style={{ marginLeft: 10 }}>{result.score} / 5점</strong>
+          <strong className={`verdict-score ${result.verdict}`}>{result.score} / 5점</strong>
         </span>
       </div>
 

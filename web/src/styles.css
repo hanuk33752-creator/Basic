@@ -7,7 +7,8 @@
   --primary: #2563eb;
   --primary-soft: #eff4ff;
   --ok: #16a34a;
-  --partial: #d97706;
+  --correct: #2563eb;   /* 정답(O) 표시용 파랑 */
+  --partial: #ea580c;
   --bad: #dc2626;
   --radius: 12px;
   --shadow: 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
@@ -94,7 +95,7 @@ label.field { display: block; margin-bottom: 12px; font-size: 13px; color: var(-
 label.field > * { margin-top: 5px; }
 
 .verdict { font-weight: 700; font-size: 20px; }
-.verdict.O { color: var(--ok); }
+.verdict.O { color: var(--correct); }
 .verdict.TRIANGLE { color: var(--partial); }
 .verdict.X { color: var(--bad); }
 
@@ -215,3 +216,29 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 
 /* 버튼 줄에서 오른쪽 끝으로 밀어 붙이는 주 동작 버튼 */
 .btn-row .push-right { margin-left: auto; }
+
+/* 답안 입력 칸 — 서술형은 길게 쓰므로 넉넉히 */
+.answer-input {
+  min-height: 240px;
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+/* 채점 결과 카드 — 맞았는지 틀렸는지 칸 전체 색으로 바로 보이게 */
+.result-card { border-width: 1px; }
+.result-card.O { background: #eff6ff; border-color: #bfdbfe; }
+.result-card.TRIANGLE { background: #fff7ed; border-color: #fed7aa; }
+.result-card.X { background: #fef2f2; border-color: #fecaca; }
+
+.verdict-score { margin-left: 10px; }
+.verdict-score.O { color: var(--correct); }
+.verdict-score.TRIANGLE { color: var(--partial); }
+.verdict-score.X { color: var(--bad); }
+
+/* 색이 깔린 카드 위에서도 안쪽 블록이 떠 보이도록 */
+.result-card .answer-block { background: rgba(255, 255, 255, 0.78); }
+.result-card .answer-block.model { background: rgba(255, 255, 255, 0.9); }
+.result-card .tag { background: rgba(255, 255, 255, 0.78); }
+.result-card .tag.hit { background: #ecfdf3; }
+.result-card .tag.miss { background: #fff1f1; }
+.result-card .btn { background: rgba(255, 255, 255, 0.9); }
