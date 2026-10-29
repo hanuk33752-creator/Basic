@@ -4,6 +4,7 @@ import { PackProvider, usePack } from './PackContext.jsx';
 import api from './api.js';
 import Home from './pages/Home.jsx';
 import SelectCount from './pages/SelectCount.jsx';
+import Review from './pages/Review.jsx';
 import Solve from './pages/Solve.jsx';
 import Result from './pages/Result.jsx';
 import WrongNotes from './pages/WrongNotes.jsx';
@@ -73,6 +74,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/start" element={<SelectCount />} />
+          <Route path="/review" element={<Review />} />
           <Route path="/solve" element={<Solve />} />
           <Route path="/result" element={<Result />} />
           <Route path="/notes" element={<WrongNotes />} />

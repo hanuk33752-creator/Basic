@@ -7,6 +7,9 @@ export default function Solve() {
   const navigate = useNavigate();
   const count = Number(params.get('count')) || 1;
   const mode = params.get('mode') === 'exam' ? 'exam' : 'practice';
+  const source = params.get('source') === 'notes' ? 'notes' : 'all';
+  const period = params.get('period') ?? 'all';
+  const minWrong = Number(params.get('minWrong')) || 1;
 
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
@@ -16,7 +19,7 @@ export default function Solve() {
   useEffect(() => {
     let cancelled = false;
     api
-      .startQuiz(count)
+      .startQuiz(count, source === 'notes' ? { source, period, minWrong } : {})
       .then((data) => {
         if (cancelled) return;
         setQuestions(data.questions);
@@ -29,7 +32,7 @@ export default function Solve() {
         setStatus('ready');
       });
     return () => { cancelled = true; };
-  }, [count]);
+  }, [count, source, period, minWrong]);
 
   const answered = questions.filter((q) => (answers[q.question_id] ?? '').trim()).length;
 
@@ -43,7 +46,10 @@ export default function Solve() {
         answer_text: answers[q.question_id] ?? '',
       }));
       const data = await api.submitAnswers(payload, mode);
-      navigate('/result', { state: { ...data, count }, replace: true });
+      navigate('/result', {
+        state: { ...data, count, review: source === 'notes' ? { period, minWrong } : null },
+        replace: true,
+      });
     } catch (e) {
       setError(e.message);
       setStatus('ready');
@@ -61,8 +67,9 @@ export default function Solve() {
         <span className={`mode-badge${mode === 'exam' ? ' exam' : ''}`}>
           {mode === 'exam' ? '시험 모드' : '연습 모드'}
         </span>{' '}
+        {source === 'notes' && <span className="mode-badge">오답 복습</span>}{source === 'notes' ? ' ' : ''}
         {questions.length}문제 · 작성 {answered}/{questions.length}
-        {questions.length < count && ' · 등록된 문제가 부족해 있는 만큼만 출제했습니다.'}
+        {questions.length < count && ' · 조건에 맞는 문제가 부족해 있는 만큼만 출제했습니다.'}
       </p>
       {mode === 'practice' && (
         <p className="muted" style={{ marginTop: -12, marginBottom: 16 }}>

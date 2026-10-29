@@ -242,3 +242,12 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 .result-card .tag.hit { background: #ecfdf3; }
 .result-card .tag.miss { background: #fff1f1; }
 .result-card .btn { background: rgba(255, 255, 255, 0.9); }
+
+/* 복습 조건 카드의 해당 문제 수 */
+.count-badge {
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 999px; padding: 2px 8px; margin-left: 6px;
+}
+.mode-card.selected .count-badge { background: #fff; border-color: #c7d7fe; color: var(--primary); }
+.mode-card:disabled { opacity: 0.45; cursor: not-allowed; }

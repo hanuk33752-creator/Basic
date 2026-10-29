@@ -39,6 +39,10 @@ export default function WrongNotes() {
       </p>
       {error && <div className="error">{error}</div>}
 
+      <div className="btn-row" style={{ marginBottom: 14 }}>
+        <Link className="btn primary" to="/review">이 오답들 다시 풀기</Link>
+      </div>
+
       <div className="filter-row">
         {PERIODS.map((p) => (
           <button

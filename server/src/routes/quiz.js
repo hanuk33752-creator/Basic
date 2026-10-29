@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as repo from '../repo.js';
 import { gradeAnswer } from '../services/grading.js';
 import { run, get } from '../db.js';
+import { isValidPeriod } from '../services/period.js';
 
 const router = Router();
 const ALLOWED_COUNTS = [1, 5, 10];
@@ -15,7 +16,20 @@ router.get('/quiz', (req, res) => {
   const pack = req.query.packId ? repo.getPack(Number(req.query.packId)) : repo.getActivePack();
   if (!pack) return res.status(400).json({ error: '활성 자격증 팩이 없습니다.' });
 
-  const questions = repo.randomQuestions(pack.pack_id, count).map((q) => ({
+  // source=notes 면 오답노트에 쌓인 문제만 다시 출제한다 (복습 모드).
+  const source = req.query.source === 'notes' ? 'notes' : 'all';
+  const period = req.query.period ?? 'all';
+  const minWrong = Math.max(1, Number(req.query.minWrong) || 1);
+  if (source === 'notes' && !isValidPeriod(period)) {
+    return res.status(400).json({ error: '지원하지 않는 기간 필터입니다.' });
+  }
+
+  const picked =
+    source === 'notes'
+      ? repo.randomWrongQuestions(pack.pack_id, count, { period, minWrong })
+      : repo.randomQuestions(pack.pack_id, count);
+
+  const questions = picked.map((q) => ({
     question_id: q.question_id,
     source_no: q.source_no,
     question_text: q.question_text,
@@ -27,8 +41,13 @@ router.get('/quiz', (req, res) => {
   res.json({
     pack: { pack_id: pack.pack_id, name: pack.name },
     requested: count,
+    source,
+    ...(source === 'notes' ? { period, min_wrong: minWrong } : null),
     // 채점 기준이 없는 문제는 출제 대상에서 빠지므로 그 수도 함께 알려준다.
-    available: repo.countReady(pack.pack_id),
+    available:
+      source === 'notes'
+        ? repo.countWrongQuestions(pack.pack_id, { period, minWrong })
+        : repo.countReady(pack.pack_id),
     questions,
   });
 });

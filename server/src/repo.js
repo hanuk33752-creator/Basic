@@ -1,5 +1,6 @@
 // DB 접근 계층. 라우터/서비스는 SQL 대신 이 함수들만 사용한다.
 import { all, get, run, tx } from './db.js';
+import { periodClause } from './services/period.js';
 
 /**
  * 출제 가능한 문제의 조건: 채점 기준(키워드가 든 그룹)이 최소 하나 있어야 한다.
@@ -87,6 +88,40 @@ export function randomQuestions(packId, count) {
     count
   );
   return rows.map(hydrate);
+}
+
+/**
+ * 오답노트에 쌓인 문제 중에서 랜덤 출제한다. (복습 모드)
+ * period 기간 안에서 오답(X·△)이 minWrong 회 이상인 문제만 대상으로 한다.
+ */
+export function randomWrongQuestions(packId, count, { period = 'all', minWrong = 1 } = {}) {
+  const rows = all(
+    `SELECT * FROM question
+     WHERE question_id IN (${wrongQuestionIds(period)})
+     ORDER BY RANDOM() LIMIT ?`,
+    packId,
+    minWrong,
+    count
+  );
+  return rows.map(hydrate);
+}
+
+/** 복습 대상 문제 수 */
+export function countWrongQuestions(packId, { period = 'all', minWrong = 1 } = {}) {
+  return get(`SELECT COUNT(*) AS c FROM (${wrongQuestionIds(period)})`, packId, minWrong).c;
+}
+
+/** 오답이 minWrong 회 이상인 문제 id 를 고르는 서브쿼리. 매개변수는 packId, minWrong 순. */
+function wrongQuestionIds(period) {
+  return `
+    SELECT q.question_id
+    FROM question q
+    JOIN attempt a ON a.question_id = q.question_id
+    WHERE q.pack_id = ? AND a.counts_in_notes = 1 AND ${GRADABLE}
+      ${periodClause(period)}
+    GROUP BY q.question_id
+    HAVING SUM(CASE WHEN a.verdict IN ('X', 'TRIANGLE') THEN 1 ELSE 0 END) >= ?
+  `;
 }
 
 /** 출제 가능한 문제 수 */

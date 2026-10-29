@@ -330,6 +330,75 @@ test('전체 흐름: 팩 생성 → 문제 등록 → 출제 → 채점 → 오�
     assert.ok(Array.isArray(attempts[0].matched_groups));
   });
 
+  await t.test('오답 복습은 오답노트에 쌓인 문제만, 횟수 조건대로 출제한다', async () => {
+    const pack = await call('POST', '/packs', { name: '복습테스트', activate: true });
+    const ids = [];
+    for (let i = 1; i <= 3; i += 1) {
+      const q = await call('POST', '/questions', {
+        packId: pack.pack_id,
+        questionText: `복습 문제 ${i}번`,
+        sourceNo: String(i),
+        requiredCount: 1,
+        sourceText: '참고자료',
+        groups: [{ label: `정답${i}`, keywords: [`정답${i}`] }],
+      });
+      ids.push(q.question_id);
+    }
+
+    // 1번 2회, 2번 4회 틀리고, 3번은 맞힌다.
+    for (const [qid, times] of [[ids[0], 2], [ids[1], 4]]) {
+      for (let i = 0; i < times; i += 1) {
+        await call('POST', '/submit', { mode: 'exam', answers: [{ question_id: qid, answer_text: '모르겠다' }] });
+      }
+    }
+    await call('POST', '/submit', { mode: 'exam', answers: [{ question_id: ids[2], answer_text: '정답3' }] });
+
+    const review = async (query) => call('GET', `/quiz?count=10&source=notes&${query}`);
+
+    const all = await review('period=all');
+    assert.equal(all.source, 'notes');
+    assert.equal(all.available, 2, '맞힌 문제는 복습 대상이 아니다');
+    assert.deepEqual(all.questions.map((q) => q.source_no).sort(), ['1', '2']);
+
+    assert.equal((await review('period=all&minWrong=3')).available, 1, '3회 이상은 2번만');
+    assert.deepEqual((await review('period=all&minWrong=3')).questions[0].source_no, '2');
+    assert.equal((await review('period=all&minWrong=10')).available, 0);
+
+    // 일반 출제는 영향을 받지 않는다.
+    const normal = await call('GET', '/quiz?count=10');
+    assert.equal(normal.source, 'all');
+    assert.equal(normal.available, 3);
+
+    const bad = await fetch(`${BASE}/quiz?count=5&source=notes&period=어제`);
+    assert.equal(bad.status, 400);
+
+    await call('DELETE', `/packs/${pack.pack_id}`);
+    await call('POST', '/packs/1/activate');
+  });
+
+  await t.test('연습 모드로 푼 복습은 오답노트에 쌓이지 않는다', async () => {
+    const pack = await call('POST', '/packs', { name: '복습연습', activate: true });
+    const q = await call('POST', '/questions', {
+      packId: pack.pack_id,
+      questionText: '복습 연습 문제',
+      requiredCount: 1,
+      sourceText: '참고자료',
+      groups: [{ label: '정답', keywords: ['정답어'] }],
+    });
+    await call('POST', '/submit', { mode: 'exam', answers: [{ question_id: q.question_id, answer_text: '틀림' }] });
+    assert.equal((await call('GET', '/quiz?count=5&source=notes')).available, 1);
+
+    const before = (await call('GET', '/notes?period=all')).rows[0].wrong_count;
+    await call('POST', '/submit', {
+      mode: 'practice',
+      answers: [{ question_id: q.question_id, answer_text: '또 틀림' }],
+    });
+    assert.equal((await call('GET', '/notes?period=all')).rows[0].wrong_count, before, '연습은 누적되지 않는다');
+
+    await call('DELETE', `/packs/${pack.pack_id}`);
+    await call('POST', '/packs/1/activate');
+  });
+
   await t.test('팩을 교체하면 출제 대상이 바뀐다', async () => {
     const other = await call('POST', '/packs', { name: '대기환경기사', activate: true });
     const quiz = await fetch(`${BASE}/quiz?count=1`).then((r) => r.json());

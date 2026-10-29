@@ -34,6 +34,14 @@ export default function Home() {
           <span className="big">✏️</span>
           <span className="label">문제 풀기</span>
         </button>
+        <button
+          className="choice"
+          onClick={() => navigate('/review')}
+          disabled={!activePack || activePack.ready_count === 0}
+        >
+          <span className="big">🔁</span>
+          <span className="label">오답 다시 풀기</span>
+        </button>
         <button className="choice" onClick={() => navigate('/notes')}>
           <span className="big">📕</span>
           <span className="label">오답노트 확인</span>
