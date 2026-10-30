@@ -330,6 +330,45 @@ test('전체 흐름: 팩 생성 → 문제 등록 → 출제 → 채점 → 오�
     assert.ok(Array.isArray(attempts[0].matched_groups));
   });
 
+  await t.test('오래 안 본 문제부터 출제해 최근에 본 문제가 다시 나오지 않는다', async () => {
+    const pack = await call('POST', '/packs', { name: '회전테스트', activate: true });
+    // 후보창은 출제 수의 3배다. 문제 60개 · 10문제씩이면 직전 3회차(30문제)는 후보에서 빠진다.
+    const POOL = 60;
+    for (let i = 1; i <= POOL; i += 1) {
+      await call('POST', '/questions', {
+        packId: pack.pack_id,
+        questionText: `회전 문제 ${i}`,
+        sourceNo: String(i),
+        requiredCount: 1,
+        sourceText: '참고자료',
+        groups: [{ label: `정답${i}`, keywords: [`정답${i}`] }],
+      });
+    }
+
+    const history = [];
+    const seen = new Set();
+    for (let round = 0; round < 6; round += 1) {
+      const { questions } = await call('GET', '/quiz?count=10');
+      const nos = questions.map((q) => q.source_no);
+      assert.equal(new Set(nos).size, 10, '한 회차 안에 같은 문제가 두 번 나오면 안 된다');
+
+      const recent = history.slice(-3).flat();
+      assert.deepEqual(
+        nos.filter((n) => recent.includes(n)),
+        [],
+        '직전 3회차에 나온 문제가 또 나오면 안 된다'
+      );
+
+      history.push(nos);
+      nos.forEach((n) => seen.add(n));
+    }
+    // 완전 무작위라면 6회차에 평균 38개 정도다. 회전 출제는 그보다 확실히 많이 훑는다.
+    assert.ok(seen.size >= 45, `6회차까지 본 문제가 너무 적다: ${seen.size}`);
+
+    await call('DELETE', `/packs/${pack.pack_id}`);
+    await call('POST', '/packs/1/activate');
+  });
+
   await t.test('오답 복습은 오답노트에 쌓인 문제만, 횟수 조건대로 출제한다', async () => {
     const pack = await call('POST', '/packs', { name: '복습테스트', activate: true });
     const ids = [];

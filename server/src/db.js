@@ -21,6 +21,7 @@ function migrate() {
     ['attempt', 'mode', "TEXT NOT NULL DEFAULT 'exam'"],
     ['attempt', 'counts_in_notes', 'INTEGER NOT NULL DEFAULT 1'],
     ['question', 'source_no', 'TEXT'],
+    ['question', 'last_served_at', 'TEXT'],
   ];
   for (const [table, column, definition] of added) {
     const columns = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);

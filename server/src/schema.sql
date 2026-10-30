@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS question (
   source_no      TEXT,                       -- 엑셀 양식의 '번호' 열. 사용자가 붙인 문제 번호
   max_score      REAL    NOT NULL DEFAULT 5, -- 배점 5점 고정
   required_count INTEGER,                    -- N. "n가지 서술" 패턴이 없으면 NULL
+  last_served_at TEXT,                       -- 마지막으로 출제된 시각. 오래 안 본 문제를 먼저 낸다
   created_at     TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 CREATE INDEX IF NOT EXISTS idx_question_pack ON question(pack_id);

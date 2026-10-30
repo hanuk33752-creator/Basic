@@ -80,14 +80,38 @@ export function getQuestion(questionId) {
   return q ? hydrate(q) : undefined;
 }
 
-/** 채점 기준이 있는 문제만 대상으로 랜덤 출제한다. */
+/**
+ * 출제 후보를 고르는 순서: 아직 안 본 문제 → 오래 전에 본 문제.
+ * 이 순서로 뽑은 후보 무리(출제 수의 3배) 안에서 다시 섞는다.
+ * 완전 무작위로 뽑으면 문제은행이 커도 같은 문제가 반복되고 끝까지 안 나오는 문제가 생긴다.
+ */
+const SERVE_ORDER = 'ORDER BY (last_served_at IS NULL) DESC, last_served_at ASC, RANDOM()';
+const WINDOW_MULTIPLIER = 3;
+
+/** 채점 기준이 있는 문제만 대상으로 출제한다. */
 export function randomQuestions(packId, count) {
   const rows = all(
-    `SELECT * FROM question q WHERE q.pack_id = ? AND ${GRADABLE} ORDER BY RANDOM() LIMIT ?`,
+    `SELECT * FROM (
+       SELECT * FROM question q WHERE q.pack_id = ? AND ${GRADABLE}
+       ${SERVE_ORDER} LIMIT ?
+     ) ORDER BY RANDOM() LIMIT ?`,
     packId,
+    count * WINDOW_MULTIPLIER,
     count
   );
   return rows.map(hydrate);
+}
+
+/** 출제된 문제에 출제 시각을 남긴다. 다음 출제에서 뒤로 밀린다. */
+export function markServed(questionIds) {
+  if (questionIds.length === 0) return;
+  const placeholders = questionIds.map(() => '?').join(', ');
+  // 밀리초까지 기록한다. 초 단위면 짧은 간격으로 연속 출제할 때 순서가 섞인다.
+  run(
+    `UPDATE question SET last_served_at = strftime('%Y-%m-%d %H:%M:%f', 'now', 'localtime')
+     WHERE question_id IN (${placeholders})`,
+    ...questionIds
+  );
 }
 
 /**
@@ -96,11 +120,14 @@ export function randomQuestions(packId, count) {
  */
 export function randomWrongQuestions(packId, count, { period = 'all', minWrong = 1 } = {}) {
   const rows = all(
-    `SELECT * FROM question
-     WHERE question_id IN (${wrongQuestionIds(period)})
-     ORDER BY RANDOM() LIMIT ?`,
+    `SELECT * FROM (
+       SELECT * FROM question
+       WHERE question_id IN (${wrongQuestionIds(period)})
+       ${SERVE_ORDER} LIMIT ?
+     ) ORDER BY RANDOM() LIMIT ?`,
     packId,
     minWrong,
+    count * WINDOW_MULTIPLIER,
     count
   );
   return rows.map(hydrate);

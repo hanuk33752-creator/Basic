@@ -29,6 +29,9 @@ router.get('/quiz', (req, res) => {
       ? repo.randomWrongQuestions(pack.pack_id, count, { period, minWrong })
       : repo.randomQuestions(pack.pack_id, count);
 
+  // 출제한 문제는 기록해 둔다. 다음 출제에서 뒤로 밀려 같은 문제가 연달아 나오지 않는다.
+  repo.markServed(picked.map((q) => q.question_id));
+
   const questions = picked.map((q) => ({
     question_id: q.question_id,
     source_no: q.source_no,
