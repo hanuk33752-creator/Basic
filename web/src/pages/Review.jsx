@@ -7,6 +7,7 @@ const COUNTS = [1, 5, 10];
 
 const PERIODS = [
   { key: 'all', label: '전체 기간' },
+  { key: 'today', label: '오늘' },
   { key: '7d', label: '최근 7일' },
   { key: '30d', label: '최근 30일' },
   { key: 'month', label: '이번 달' },

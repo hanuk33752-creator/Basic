@@ -369,6 +369,26 @@ test('전체 흐름: 팩 생성 → 문제 등록 → 출제 → 채점 → 오�
     await call('POST', '/packs/1/activate');
   });
 
+  await t.test("'오늘' 필터는 오늘 틀린 것만 센다", async () => {
+    const pack = await call('POST', '/packs', { name: '오늘필터', activate: true });
+    const q = await call('POST', '/questions', {
+      packId: pack.pack_id,
+      questionText: '오늘 필터 문제',
+      requiredCount: 1,
+      sourceText: '참고자료',
+      groups: [{ label: '정답', keywords: ['정답어'] }],
+    });
+    await call('POST', '/submit', { mode: 'exam', answers: [{ question_id: q.question_id, answer_text: '틀림' }] });
+
+    const today = await call('GET', '/notes?period=today');
+    assert.equal(today.rows.length, 1, '오늘 틀린 문제는 오늘 필터에 보인다');
+    assert.equal(today.rows[0].wrong_count, 1);
+    assert.equal((await call('GET', '/quiz?count=5&source=notes&period=today')).available, 1);
+
+    await call('DELETE', `/packs/${pack.pack_id}`);
+    await call('POST', '/packs/1/activate');
+  });
+
   await t.test('오답 복습은 오답노트에 쌓인 문제만, 횟수 조건대로 출제한다', async () => {
     const pack = await call('POST', '/packs', { name: '복습테스트', activate: true });
     const ids = [];

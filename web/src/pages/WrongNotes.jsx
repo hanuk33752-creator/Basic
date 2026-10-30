@@ -6,6 +6,7 @@ import { VERDICT_MARK } from '../components/ResultCard.jsx';
 
 const PERIODS = [
   { key: 'all', label: '전체' },
+  { key: 'today', label: '오늘' },
   { key: '7d', label: '최근 7일' },
   { key: '30d', label: '최근 30일' },
   { key: 'month', label: '이번 달' },

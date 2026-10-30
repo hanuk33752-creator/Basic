@@ -4,6 +4,7 @@
  */
 export const PERIODS = {
   all: null,
+  today: "datetime('now', 'localtime', 'start of day')",
   '7d': "datetime('now', 'localtime', '-7 days')",
   '30d': "datetime('now', 'localtime', '-30 days')",
   month: "datetime('now', 'localtime', 'start of month')",
