@@ -57,9 +57,10 @@ export const api = {
     request('GET', `/notes/${questionId}?period=${period}`),
 
   // 문서 업로드 파이프라인 (백그라운드 잡 + 폴링)
-  parseDocument: (file) => {
+  parseDocument: (file, packId) => {
     const form = new FormData();
     form.append('file', file);
+    if (packId) form.append('packId', String(packId));
     return request('POST', '/upload/parse', form, true);
   },
   confirmCandidates: (packId, candidates) => request('POST', '/upload/confirm', { packId, candidates }),

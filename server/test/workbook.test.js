@@ -225,3 +225,15 @@ test('번호를 비워도 문제는 정상 등록된다', async () => {
   assert.ok(target);
   assert.equal(target.source_no, null);
 });
+
+test('중복 판정은 공백·줄바꿈 차이를 무시한다', async () => {
+  const { normalizeQuestionText } = await import('../src/repo.js');
+  assert.equal(
+    normalizeQuestionText('  슬러지 벌킹의 원인을\n3가지 서술하시오. '),
+    normalizeQuestionText('슬러지 벌킹의 원인을 3가지 서술하시오.')
+  );
+  assert.notEqual(
+    normalizeQuestionText('문제 1번'),
+    normalizeQuestionText('문제 2번')
+  );
+});

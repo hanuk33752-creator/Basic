@@ -17,6 +17,7 @@ export default function UploadPanel({ packId, packName, onSaved }) {
 
   const included = useMemo(() => rows.filter((r) => r.include).length, [rows]);
   const noSource = useMemo(() => rows.filter((r) => !r.source_text.trim()).length, [rows]);
+  const alreadyRegistered = useMemo(() => rows.filter((r) => r.already_registered).length, [rows]);
 
   async function handleFile(file) {
     if (!file) return;
@@ -25,13 +26,14 @@ export default function UploadPanel({ packId, packName, onSaved }) {
     setJob(null);
     setStage('parsing');
     try {
-      const started = await api.parseDocument(file);
+      const started = await api.parseDocument(file, packId);
       const data = await api.waitForJob(started.job_id, setJob);
       setMeta(data);
       setRows(
         data.candidates.map((c, i) => ({
           key: `${i}`,
-          include: true,
+          include: !c.already_registered, // 이미 등록된 문제는 기본으로 빼둔다
+          already_registered: !!c.already_registered,
           question_text: c.question_text,
           source_text: c.source_text ?? '',
           required_count: c.required_count ?? '',
@@ -145,6 +147,13 @@ export default function UploadPanel({ packId, packName, onSaved }) {
             {meta.failures?.length > 0 && ` · 일부 구간(${meta.failures.length}개) 분석 실패`}
           </div>
 
+          {alreadyRegistered > 0 && (
+            <div className="notice" style={{ marginTop: 0 }}>
+              이 팩에 <strong>이미 등록된 문제 {alreadyRegistered}개</strong>는 체크를 해제해 뒀습니다.
+              그대로 저장하면 중복 없이 새 문제만 추가됩니다.
+            </div>
+          )}
+
           {noSource > 0 && (
             <div className="error" style={{ marginTop: 0 }}>
               참고자료가 비어 있는 후보가 {noSource}개 있습니다. 그대로 저장하면 채점 기준을 만들지 못해
@@ -155,7 +164,14 @@ export default function UploadPanel({ packId, packName, onSaved }) {
           <div className="filter-row">
             <button className="btn sm" onClick={() => setAll(() => true)}>전체 선택</button>
             <button className="btn sm" onClick={() => setAll(() => false)}>전체 해제</button>
-            {noSource > 0 && (
+            {alreadyRegistered > 0 && (
+            <div className="notice" style={{ marginTop: 0 }}>
+              이 팩에 <strong>이미 등록된 문제 {alreadyRegistered}개</strong>는 체크를 해제해 뒀습니다.
+              그대로 저장하면 중복 없이 새 문제만 추가됩니다.
+            </div>
+          )}
+
+          {noSource > 0 && (
               <button className="btn sm" onClick={() => setAll((r) => !!r.source_text.trim())}>
                 참고자료 없는 항목 해제
               </button>
@@ -208,6 +224,9 @@ function CandidateRow({ row, index, open, onToggleOpen, onPatch }) {
           <span className="muted">{index + 1}.</span> {row.question_text || '(빈 문제)'}
         </button>
         <span className="preview-badges">
+          {row.already_registered && (
+            <span className="tag" title="이 팩에 같은 문제가 이미 있습니다">이미 등록됨</span>
+          )}
           {missingSource && <span className="tag miss" title="참고자료 없음">참고자료 없음</span>}
           {row.groups?.length > 0 && (
             <span className="tag hit" title="엑셀 항목 열에서 채점 기준이 확정됨">
@@ -284,6 +303,7 @@ function SaveSummary({ result }) {
   return (
     <div className="notice" style={{ marginTop: 10 }}>
       {result.saved_count}개 문제를 저장했습니다. (출제 가능 {result.ready_count}개)
+      {result.duplicate_count > 0 && ` · 이미 있던 ${result.duplicate_count}개는 건너뛰었습니다`}
       {result.incomplete?.length > 0 && (
         <>
           {' '}

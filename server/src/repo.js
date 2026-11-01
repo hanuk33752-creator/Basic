@@ -287,6 +287,20 @@ export function deleteQuestion(questionId) {
   return run('DELETE FROM question WHERE question_id = ?', questionId).changes > 0;
 }
 
+/** 중복 판정용 정규화. 앞뒤 공백과 줄바꿈·연속 공백 차이는 같은 문제로 본다. */
+export function normalizeQuestionText(text) {
+  return (text ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+/** 팩에 이미 등록된 문제 본문(정규화된) 집합 */
+export function existingQuestionTexts(packId) {
+  return new Set(
+    all('SELECT question_text FROM question WHERE pack_id = ?', packId).map((r) =>
+      normalizeQuestionText(r.question_text)
+    )
+  );
+}
+
 export function countQuestions(packId) {
   return get('SELECT COUNT(*) AS c FROM question WHERE pack_id = ?', packId).c;
 }

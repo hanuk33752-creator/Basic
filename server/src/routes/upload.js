@@ -21,6 +21,8 @@ router.post('/parse', upload.single('file'), (req, res) => {
   // multer 는 multipart 파일명을 latin1 으로 디코딩한다. 한글 파일명을 되살린다.
   const originalname = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
   const { buffer } = req.file;
+  // 미리보기에서 "이미 등록됨"을 표시하려면 대상 팩을 알아야 한다.
+  const previewPackId = Number(req.body?.packId) || repo.getActivePack()?.pack_id || null;
   const job = createJob('parse');
   res.status(202).json(publicView(job));
 
@@ -30,6 +32,7 @@ router.post('/parse', upload.single('file'), (req, res) => {
       if (/\.xlsx?$/i.test(originalname)) {
         updateJob(job.job_id, { phase: '엑셀에서 문제 읽는 중' });
         const { candidates, skipped, sheet_name } = await readQuestionWorkbook(buffer);
+        markAlreadyRegistered(candidates, previewPackId);
         finishJob(job.job_id, {
           filename: originalname,
           parsed_by: 'excel',
@@ -52,6 +55,7 @@ router.post('/parse', upload.single('file'), (req, res) => {
       const { source, candidates, truncated, failures } = await proposeQuestions(text, {
         onProgress: (done, total) => updateJob(job.job_id, { progress: done, total }),
       });
+      markAlreadyRegistered(candidates, previewPackId);
 
       finishJob(job.job_id, {
         filename: originalname,
@@ -99,9 +103,24 @@ router.post('/confirm', (req, res) => {
       const incomplete = [];
       let done = 0;
 
+      // 이미 등록된 문제는 건너뛴다. 엑셀 전체를 다시 올려도 중복이 쌓이지 않는다.
+      const existingTexts = repo.existingQuestionTexts(targetPack);
+      const duplicates = [];
+      const fresh = [];
+      for (const c of valid) {
+        const key = repo.normalizeQuestionText(c.question_text);
+        if (existingTexts.has(key)) {
+          duplicates.push({ question_text: c.question_text.trim().slice(0, 60) });
+          continue;
+        }
+        existingTexts.add(key); // 같은 파일 안의 중복도 막는다
+        fresh.push(c);
+      }
+      updateJob(job.job_id, { total: fresh.length });
+
       // 문제별로 키워드를 뽑는다. 저장은 순서를 보장하려고 추출 뒤에 한 번에 한다.
       const prepared = await mapWithConcurrency(
-        valid,
+        fresh,
         SAVE_CONCURRENCY,
         async (c) => {
           const questionText = c.question_text.trim();
@@ -130,7 +149,7 @@ router.post('/confirm', (req, res) => {
 
       updateJob(job.job_id, { phase: '문제은행에 저장 중' });
       prepared.forEach((r, i) => {
-        const source = valid[i];
+        const source = fresh[i];
         if (!r.ok) {
           failed.push({ question_text: (source.question_text ?? '').slice(0, 60), error: r.error?.message ?? String(r.error) });
           return;
@@ -159,6 +178,8 @@ router.post('/confirm', (req, res) => {
       finishJob(job.job_id, {
         saved_count: saved.length,
         ready_count: saved.length - incomplete.length,
+        duplicate_count: duplicates.length,
+        duplicates: duplicates.slice(0, 20),
         incomplete,
         failed,
         pack_id: targetPack,
@@ -184,6 +205,15 @@ router.get('/template.xlsx', async (req, res, next) => {
     next(err);
   }
 });
+
+/** 후보마다 이 팩에 이미 같은 문제가 있는지 표시한다. */
+function markAlreadyRegistered(candidates, packId) {
+  if (!packId) return;
+  const existing = repo.existingQuestionTexts(packId);
+  for (const c of candidates) {
+    c.already_registered = existing.has(repo.normalizeQuestionText(c.question_text));
+  }
+}
 
 /** 잡 진행 상황 폴링 */
 router.get('/jobs/:jobId', (req, res) => {

@@ -458,6 +458,65 @@ test('전체 흐름: 팩 생성 → 문제 등록 → 출제 → 채점 → 오�
     await call('POST', '/packs/1/activate');
   });
 
+  await t.test('이미 등록된 문제는 다시 올려도 중복되지 않고 오답노트가 보존된다', async () => {
+    const pack = await call('POST', '/packs', { name: '중복테스트', activate: true });
+    const makeBody = (texts) => ({
+      packId: pack.pack_id,
+      candidates: texts.map((t, i) => ({
+        question_text: t,
+        source_no: String(i + 1),
+        required_count: 1,
+        source_text: '참고자료',
+        groups: [{ label: `정답${i + 1}`, keywords: [`정답어${i + 1}`] }],
+      })),
+    });
+    const confirm = async (texts) => {
+      const started = await call('POST', '/upload/confirm', makeBody(texts));
+      for (let i = 0; i < 200; i += 1) {
+        const job = await call('GET', `/upload/jobs/${started.job_id}`);
+        if (job.status === 'done') return job.result;
+        if (job.status === 'error') throw new Error(job.error);
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      throw new Error('저장이 끝나지 않았습니다');
+    };
+
+    const original = ['중복 문제 1', '중복 문제 2'];
+    const first = await confirm(original);
+    assert.equal(first.saved_count, 2);
+    assert.equal(first.duplicate_count, 0);
+
+    const { questions } = await call('GET', `/questions?packId=${pack.pack_id}`);
+    await call('POST', '/submit', {
+      mode: 'exam',
+      answers: [{ question_id: questions[0].question_id, answer_text: '틀림' }],
+    });
+    const before = await call('GET', '/notes?period=all');
+    assert.equal(before.rows.length, 1);
+
+    // 기존 2개 + 새 1개를 통째로 다시 올린다.
+    const second = await confirm([...original, '중복 문제 3']);
+    assert.equal(second.saved_count, 1, '새 문제만 저장된다');
+    assert.equal(second.duplicate_count, 2, '이미 있던 문제는 건너뛴다');
+
+    const after = await call('GET', `/questions?packId=${pack.pack_id}`);
+    assert.equal(after.questions.length, 3, '중복이 쌓이지 않는다');
+    const notes = await call('GET', '/notes?period=all');
+    assert.deepEqual(
+      notes.rows.map((r) => r.wrong_count),
+      before.rows.map((r) => r.wrong_count),
+      '오답노트가 그대로 남는다'
+    );
+
+    // 같은 파일 안의 중복도 막는다.
+    const third = await confirm(['같은 문제', '같은 문제']);
+    assert.equal(third.saved_count, 1);
+    assert.equal(third.duplicate_count, 1);
+
+    await call('DELETE', `/packs/${pack.pack_id}`);
+    await call('POST', '/packs/1/activate');
+  });
+
   await t.test('팩을 교체하면 출제 대상이 바뀐다', async () => {
     const other = await call('POST', '/packs', { name: '대기환경기사', activate: true });
     const quiz = await fetch(`${BASE}/quiz?count=1`).then((r) => r.json());
