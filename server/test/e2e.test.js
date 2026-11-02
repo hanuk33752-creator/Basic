@@ -389,6 +389,58 @@ test('전체 흐름: 팩 생성 → 문제 등록 → 출제 → 채점 → 오�
     await call('POST', '/packs/1/activate');
   });
 
+  await t.test('오늘 안 푼 문제만 출제하고, 다 풀면 다시 전체가 대상이 된다', async () => {
+    const pack = await call('POST', '/packs', { name: '오늘안푼', activate: true });
+    const POOL = 10;
+    for (let i = 1; i <= POOL; i += 1) {
+      await call('POST', '/questions', {
+        packId: pack.pack_id,
+        questionText: `오늘 문제 ${i}`,
+        sourceNo: String(i),
+        requiredCount: 1,
+        sourceText: '참고자료',
+        groups: [{ label: `정답${i}`, keywords: [`정답어${i}`] }],
+      });
+    }
+
+    const progress = () => call('GET', '/progress/today');
+    assert.deepEqual(await progress(), { total: POOL, solved_today: 0, remaining: POOL, round: 1 });
+
+    const solveRound = async () => {
+      const { questions, available } = await call('GET', '/quiz?count=5&source=unsolved');
+      await call('POST', '/submit', {
+        mode: 'practice',
+        answers: questions.map((q) => ({ question_id: q.question_id, answer_text: '답' })),
+      });
+      return { nos: questions.map((q) => q.source_no), available };
+    };
+
+    const first = await solveRound();
+    assert.equal(first.available, POOL);
+    assert.equal((await progress()).solved_today, 5);
+
+    const second = await solveRound();
+    assert.equal(second.available, 5, '남은 5개만 대상이다');
+    assert.deepEqual(
+      second.nos.filter((n) => first.nos.includes(n)),
+      [],
+      '이미 푼 문제는 다시 나오지 않는다'
+    );
+
+    // 한 바퀴를 다 돌면 초기화되어 전체가 다시 대상이 된다.
+    const after = await progress();
+    assert.equal(after.solved_today, POOL);
+    assert.equal(after.remaining, POOL, '전부 풀면 다시 전체가 대상');
+    assert.equal(after.round, 2, '2바퀴째로 넘어간다');
+
+    const third = await call('GET', '/quiz?count=5&source=unsolved');
+    assert.equal(third.available, POOL);
+    assert.equal(third.questions.length, 5);
+
+    await call('DELETE', `/packs/${pack.pack_id}`);
+    await call('POST', '/packs/1/activate');
+  });
+
   await t.test('오답 복습은 오답노트에 쌓인 문제만, 횟수 조건대로 출제한다', async () => {
     const pack = await call('POST', '/packs', { name: '복습테스트', activate: true });
     const ids = [];

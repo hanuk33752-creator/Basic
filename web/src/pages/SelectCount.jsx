@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePack } from '../PackContext.jsx';
+import api from '../api.js';
 
 const COUNTS = [1, 5, 10];
 
@@ -17,10 +18,29 @@ const MODES = [
   },
 ];
 
+const SCOPES = [
+  { key: 'all', label: '전체 문제', hint: '문제은행 전체에서 뽑습니다.' },
+  {
+    key: 'unsolved',
+    label: '오늘 안 푼 문제',
+    hint: '오늘 아직 풀지 않은 문제만 뽑습니다. 전부 풀고 나면 다시 처음부터 시작합니다.',
+  },
+];
+
 export default function SelectCount() {
   const navigate = useNavigate();
   const [mode, setMode] = useState('practice');
+  const [scope, setScope] = useState('all');
+  const [progress, setProgress] = useState(null);
   const { activePack } = usePack();
+
+  const loadProgress = useCallback(() => {
+    api.todayProgress().then(setProgress).catch(() => setProgress(null));
+  }, []);
+  useEffect(() => {
+    loadProgress();
+  }, [loadProgress, activePack]);
+
   // 채점 기준이 있는 문제만 출제 대상이다.
   const available = activePack?.ready_count ?? 0;
   const excluded = (activePack?.question_count ?? 0) - available;
@@ -32,6 +52,34 @@ export default function SelectCount() {
         {activePack ? `${activePack.name} · 출제 가능한 문제 ${available}개` : '활성 팩이 없습니다.'}
         {excluded > 0 && ` · 채점 기준이 없어 제외된 문제 ${excluded}개`}
       </p>
+
+      <h2>어떤 문제를 풀까요?</h2>
+      <div className="mode-grid">
+        {SCOPES.map((s) => (
+          <button
+            key={s.key}
+            type="button"
+            className={`mode-card${scope === s.key ? ' selected' : ''}`}
+            onClick={() => setScope(s.key)}
+            disabled={s.key === 'unsolved' && progress !== null && progress.total === 0}
+          >
+            <span className="mode-name">
+              {s.label}
+              {s.key === 'unsolved' && progress && (
+                <span className="count-badge">남은 {progress.remaining}문제</span>
+              )}
+            </span>
+            <span className="mode-hint">{s.hint}</span>
+          </button>
+        ))}
+      </div>
+
+      {scope === 'unsolved' && progress && progress.total > 0 && (
+        <p className="muted" style={{ marginTop: -4, marginBottom: 16 }}>
+          오늘 {progress.total}개 중 {progress.solved_today}개를 풀었습니다
+          {progress.round > 1 && ` · ${progress.round}바퀴째`}
+        </p>
+      )}
 
       <h2>어떻게 풀까요?</h2>
       <div className="mode-grid">
@@ -55,7 +103,9 @@ export default function SelectCount() {
             key={n}
             className="choice"
             disabled={available === 0}
-            onClick={() => navigate(`/solve?count=${n}&mode=${mode}`)}
+            onClick={() =>
+              navigate(`/solve?count=${n}&mode=${mode}${scope === 'unsolved' ? '&source=unsolved' : ''}`)
+            }
           >
             <span className="big">{n}</span>
             <span className="label">{n}문제</span>

@@ -16,8 +16,10 @@ router.get('/quiz', (req, res) => {
   const pack = req.query.packId ? repo.getPack(Number(req.query.packId)) : repo.getActivePack();
   if (!pack) return res.status(400).json({ error: '활성 자격증 팩이 없습니다.' });
 
-  // source=notes 면 오답노트에 쌓인 문제만 다시 출제한다 (복습 모드).
-  const source = req.query.source === 'notes' ? 'notes' : 'all';
+  // source=notes  → 오답노트에 쌓인 문제만 (복습 모드)
+  // source=unsolved → 오늘 아직 안 푼 문제만
+  const SOURCES = ['all', 'notes', 'unsolved'];
+  const source = SOURCES.includes(req.query.source) ? req.query.source : 'all';
   const period = req.query.period ?? 'all';
   const minWrong = Math.max(1, Number(req.query.minWrong) || 1);
   if (source === 'notes' && !isValidPeriod(period)) {
@@ -27,7 +29,9 @@ router.get('/quiz', (req, res) => {
   const picked =
     source === 'notes'
       ? repo.randomWrongQuestions(pack.pack_id, count, { period, minWrong })
-      : repo.randomQuestions(pack.pack_id, count);
+      : source === 'unsolved'
+        ? repo.randomUnsolvedTodayQuestions(pack.pack_id, count)
+        : repo.randomQuestions(pack.pack_id, count);
 
   // 출제한 문제는 기록해 둔다. 다음 출제에서 뒤로 밀려 같은 문제가 연달아 나오지 않는다.
   repo.markServed(picked.map((q) => q.question_id));
@@ -50,7 +54,9 @@ router.get('/quiz', (req, res) => {
     available:
       source === 'notes'
         ? repo.countWrongQuestions(pack.pack_id, { period, minWrong })
-        : repo.countReady(pack.pack_id),
+        : source === 'unsolved'
+          ? repo.todayProgress(pack.pack_id).remaining
+          : repo.countReady(pack.pack_id),
     questions,
   });
 });
@@ -129,6 +135,13 @@ router.post('/submit', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+/** 오늘 얼마나 풀었는지 */
+router.get('/progress/today', (req, res) => {
+  const pack = req.query.packId ? repo.getPack(Number(req.query.packId)) : repo.getActivePack();
+  if (!pack) return res.json({ total: 0, solved_today: 0, remaining: 0, round: 1 });
+  res.json(repo.todayProgress(pack.pack_id));
 });
 
 /** 채점이 끝난 시도를 오답노트 집계에 넣거나 뺀다. (키워드 채점이 잘못 판정한 경우 등) */

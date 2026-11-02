@@ -7,7 +7,8 @@ export default function Solve() {
   const navigate = useNavigate();
   const count = Number(params.get('count')) || 1;
   const mode = params.get('mode') === 'exam' ? 'exam' : 'practice';
-  const source = params.get('source') === 'notes' ? 'notes' : 'all';
+  const rawSource = params.get('source');
+  const source = rawSource === 'notes' || rawSource === 'unsolved' ? rawSource : 'all';
   const period = params.get('period') ?? 'all';
   const minWrong = Number(params.get('minWrong')) || 1;
 
@@ -19,7 +20,7 @@ export default function Solve() {
   useEffect(() => {
     let cancelled = false;
     api
-      .startQuiz(count, source === 'notes' ? { source, period, minWrong } : {})
+      .startQuiz(count, source === 'notes' ? { source, period, minWrong } : { source })
       .then((data) => {
         if (cancelled) return;
         setQuestions(data.questions);
@@ -47,7 +48,7 @@ export default function Solve() {
       }));
       const data = await api.submitAnswers(payload, mode);
       navigate('/result', {
-        state: { ...data, count, review: source === 'notes' ? { period, minWrong } : null },
+        state: { ...data, count, source, review: source === 'notes' ? { period, minWrong } : null },
         replace: true,
       });
     } catch (e) {
@@ -67,7 +68,9 @@ export default function Solve() {
         <span className={`mode-badge${mode === 'exam' ? ' exam' : ''}`}>
           {mode === 'exam' ? '시험 모드' : '연습 모드'}
         </span>{' '}
-        {source === 'notes' && <span className="mode-badge">오답 복습</span>}{source === 'notes' ? ' ' : ''}
+        {source === 'notes' && <span className="mode-badge">오답 복습</span>}
+        {source === 'unsolved' && <span className="mode-badge">오늘 안 푼 문제</span>}
+        {source !== 'all' ? ' ' : ''}
         {questions.length}문제 · 작성 {answered}/{questions.length}
         {questions.length < count && ' · 조건에 맞는 문제가 부족해 있는 만큼만 출제했습니다.'}
       </p>

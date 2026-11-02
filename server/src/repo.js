@@ -151,6 +151,59 @@ function wrongQuestionIds(period) {
   `;
 }
 
+/**
+ * 오늘 푼 횟수가 가장 적은 문제들. "오늘 아직 안 푼 문제" 출제에 쓴다.
+ *
+ * 하루가 시작되면 모두 0회라 전체가 대상이고, 풀수록 대상이 줄어든다.
+ * 전부 한 번씩 풀고 나면 최소 횟수가 1이 되어 다시 전체가 대상이 된다(자동 초기화).
+ */
+const TODAY_COUNTS = `
+  WITH counts AS (
+    SELECT q.question_id,
+      (SELECT COUNT(*) FROM attempt a
+        WHERE a.question_id = q.question_id
+          AND a.submitted_at >= datetime('now', 'localtime', 'start of day')) AS today_count
+    FROM question q WHERE q.pack_id = ? AND ${GRADABLE}
+  )`;
+
+export function randomUnsolvedTodayQuestions(packId, count) {
+  const rows = all(
+    `${TODAY_COUNTS}
+     SELECT * FROM (
+       SELECT q.* FROM question q
+       JOIN counts c ON c.question_id = q.question_id
+       WHERE c.today_count = (SELECT MIN(today_count) FROM counts)
+       ${SERVE_ORDER} LIMIT ?
+     ) ORDER BY RANDOM() LIMIT ?`,
+    packId,
+    count * WINDOW_MULTIPLIER,
+    count
+  );
+  return rows.map(hydrate);
+}
+
+/** 오늘의 진행 상황: 전체 / 오늘 푼 문제 수 / 남은 문제 수 / 몇 바퀴째인지 */
+export function todayProgress(packId) {
+  const row = get(
+    `${TODAY_COUNTS}
+     SELECT
+       COUNT(*) AS total,
+       SUM(CASE WHEN today_count > 0 THEN 1 ELSE 0 END) AS solved_today,
+       MIN(today_count) AS min_count,
+       SUM(CASE WHEN today_count = (SELECT MIN(today_count) FROM counts) THEN 1 ELSE 0 END) AS remaining
+     FROM counts`,
+    packId
+  );
+  const total = row?.total ?? 0;
+  if (total === 0) return { total: 0, solved_today: 0, remaining: 0, round: 1 };
+  return {
+    total,
+    solved_today: row.solved_today ?? 0,
+    remaining: row.remaining ?? 0,
+    round: (row.min_count ?? 0) + 1,
+  };
+}
+
 /** 출제 가능한 문제 수 */
 export function countReady(packId) {
   return get(`SELECT COUNT(*) AS c FROM question q WHERE q.pack_id = ? AND ${GRADABLE}`, packId).c;

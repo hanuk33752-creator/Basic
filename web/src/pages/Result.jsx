@@ -17,11 +17,11 @@ export default function Result() {
     );
   }
 
-  const { results, summary, mode = 'exam', count = results.length, review = null } = state;
+  const { results, summary, mode = 'exam', count = results.length, review = null, source = 'all' } = state;
   const modeName = mode === 'exam' ? '시험 모드' : '연습 모드';
   const nextQuizUrl = review
     ? `/solve?count=${count}&mode=${mode}&source=notes&period=${review.period}&minWrong=${review.minWrong}`
-    : `/solve?count=${count}&mode=${mode}`;
+    : `/solve?count=${count}&mode=${mode}${source === 'unsolved' ? '&source=unsolved' : ''}`;
   const [counted, setCounted] = useState(
     () => Object.fromEntries(results.map((r) => [r.attempt_id, mode === 'exam']))
   );
@@ -83,7 +83,9 @@ export default function Result() {
           className="btn primary push-right"
           onClick={() => navigate(nextQuizUrl, { replace: true })}
         >
-          새 문제 풀기 ({review ? '오답 복습 · ' : ''}{modeName} · {count}문제)
+          새 문제 풀기 ({review ? '오답 복습 · ' : ''}
+          {source === 'unsolved' ? '오늘 안 푼 문제 · ' : ''}
+          {modeName} · {count}문제)
         </button>
       </div>
     </main>

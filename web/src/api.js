@@ -39,6 +39,7 @@ export const api = {
   startQuiz: (count, options = {}) => {
     const params = new URLSearchParams({ count: String(count) });
     if (options.packId) params.set('packId', String(options.packId));
+    if (options.source === 'unsolved') params.set('source', 'unsolved');
     if (options.source === 'notes') {
       params.set('source', 'notes');
       params.set('period', options.period ?? 'all');
@@ -46,6 +47,7 @@ export const api = {
     }
     return request('GET', `/quiz?${params}`);
   },
+  todayProgress: () => request('GET', '/progress/today'),
   submitAnswers: (answers, mode = 'exam') => request('POST', '/submit', { answers, mode }),
   setAttemptCounted: (attemptId, counted) =>
     request('PATCH', `/attempts/${attemptId}`, { counts_in_notes: counted }),
