@@ -2,12 +2,28 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../api.js';
 import { usePack } from '../PackContext.jsx';
 import UploadPanel from '../components/UploadPanel.jsx';
+import QuestionEditor from '../components/QuestionEditor.jsx';
+
+/** 검색이 훑는 텍스트: 번호 · 본문 · 모범답안 · 항목 이름과 키워드 */
+function searchableText(q) {
+  return [
+    q.source_no ?? '',
+    String(q.question_id),
+    q.question_text,
+    ...(q.references ?? []).map((r) => r.source_text),
+    ...q.keyword_groups.flatMap((g) => [g.label ?? '', ...g.keywords]),
+  ]
+    .join(' ')
+    .toLowerCase();
+}
 
 export default function Manage() {
   const { packs, activePack, refresh } = usePack();
   const [newName, setNewName] = useState('');
   const [questions, setQuestions] = useState([]);
   const [filter, setFilter] = useState('all'); // all | ready | incomplete
+  const [query, setQuery] = useState('');
+  const [editingId, setEditingId] = useState(null);
   const [limit, setLimit] = useState(30);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -31,10 +47,15 @@ export default function Manage() {
   // 화면에서 따로 판정하면 서버의 집계와 어긋난다.
   const incompleteCount = useMemo(() => questions.filter((q) => !q.is_gradable).length, [questions]);
   const filtered = useMemo(() => {
-    if (filter === 'ready') return questions.filter((q) => q.is_gradable);
-    if (filter === 'incomplete') return questions.filter((q) => !q.is_gradable);
-    return questions;
-  }, [questions, filter]);
+    let list = questions;
+    if (filter === 'ready') list = list.filter((q) => q.is_gradable);
+    if (filter === 'incomplete') list = list.filter((q) => !q.is_gradable);
+
+    // 번호·문제 본문·모범답안·채점 항목 어디에 있든 찾는다.
+    const needle = query.trim().toLowerCase();
+    if (!needle) return list;
+    return list.filter((q) => searchableText(q).includes(needle));
+  }, [questions, filter, query]);
 
   async function guard(fn) {
     setBusy(true);
@@ -201,6 +222,20 @@ export default function Manage() {
       )}
 
       {questions.length > 0 && (
+        <div className="search-row">
+          <input
+            type="text"
+            value={query}
+            placeholder="문제 번호, 본문, 모범답안, 키워드로 검색"
+            onChange={(e) => { setQuery(e.target.value); setLimit(30); }}
+          />
+          {query && (
+            <button className="btn sm ghost" onClick={() => setQuery('')}>지우기</button>
+          )}
+        </div>
+      )}
+
+      {questions.length > 0 && (
         <div className="filter-row">
           {[
             ['all', `전체 ${questions.length}`],
@@ -220,11 +255,30 @@ export default function Manage() {
 
       {filtered.length === 0 ? (
         <div className="empty">
-          {questions.length === 0 ? '등록된 문제가 없습니다.' : '해당하는 문제가 없습니다.'}
+          {questions.length === 0
+            ? '등록된 문제가 없습니다.'
+            : query.trim()
+              ? `'${query.trim()}' 에 해당하는 문제가 없습니다.`
+              : '해당하는 문제가 없습니다.'}
         </div>
       ) : (
         <>
-          {filtered.slice(0, limit).map((q) => (
+          {filtered.slice(0, limit).map((q) =>
+            editingId === q.question_id ? (
+              <QuestionEditor
+                key={q.question_id}
+                question={q}
+                busy={busy}
+                onCancel={() => setEditingId(null)}
+                onSave={(payload) =>
+                  guard(async () => {
+                    await api.updateQuestion(q.question_id, payload);
+                    await loadQuestions();
+                    setEditingId(null);
+                  })
+                }
+              />
+            ) : (
             <div className="card" key={q.question_id}>
               <div className="q-meta">
                 {q.source_no ? `${q.source_no}번` : `#${q.question_id}`}
@@ -234,6 +288,12 @@ export default function Manage() {
                 )}
               </div>
               <p className="q-text">{q.question_text}</p>
+              {q.references?.length > 0 && (
+                <details className="answer-block model">
+                  <summary>모범답안</summary>
+                  <p className="q-text">{q.references.map((r) => r.source_text).join('\n\n')}</p>
+                </details>
+              )}
               <div>
                 {q.keyword_groups.map((g) =>
                   g.is_flat ? (
@@ -247,6 +307,7 @@ export default function Manage() {
                 )}
               </div>
               <div className="btn-row" style={{ marginTop: 10 }}>
+                <button className="btn sm" onClick={() => setEditingId(q.question_id)}>편집</button>
                 <button
                   className="btn sm danger"
                   onClick={() => {
@@ -259,7 +320,8 @@ export default function Manage() {
                 </button>
               </div>
             </div>
-          ))}
+            )
+          )}
 
           {filtered.length > limit && (
             <button className="btn block" onClick={() => setLimit((n) => n + 50)}>

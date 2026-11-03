@@ -251,3 +251,22 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 }
 .mode-card.selected .count-badge { background: #fff; border-color: #c7d7fe; color: var(--primary); }
 .mode-card:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* 문제 편집 */
+.card.editing { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.item-row {
+  display: grid; gap: 8px; align-items: center; margin-bottom: 8px;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+.item-required {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 13px; color: var(--muted); white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .item-row { grid-template-columns: 1fr auto; }
+  .item-row input[type='text'] { grid-column: 1 / -1; }
+}
+
+/* 문제 검색 */
+.search-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.search-row input { flex: 1; }

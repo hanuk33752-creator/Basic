@@ -569,6 +569,61 @@ test('전체 흐름: 팩 생성 → 문제 등록 → 출제 → 채점 → 오�
     await call('POST', '/packs/1/activate');
   });
 
+  await t.test('문제·모범답안·채점 항목을 수정할 수 있다', async () => {
+    const pack = await call('POST', '/packs', { name: '편집테스트', activate: true });
+    const created = await call('POST', '/questions', {
+      packId: pack.pack_id,
+      questionText: '원래 문제',
+      sourceNo: '5',
+      requiredCount: 2,
+      sourceText: '원래 모범답안',
+      groups: [{ label: '항목A', keywords: ['가나'] }, { label: '항목B', keywords: ['다라'] }],
+    });
+
+    const edited = await call('PUT', `/questions/${created.question_id}`, {
+      questionText: '수정된 문제',
+      sourceNo: '7',
+      requiredCount: 3,
+      sourceText: '수정된 모범답안',
+      groups: [
+        { label: '필수 항목', keywords: ['필수키'], is_required: true },
+        { label: '항목B 수정', keywords: ['다라', '마바'] },
+        { label: '새 항목', keywords: ['사아'] },
+      ],
+    });
+    assert.equal(edited.question_text, '수정된 문제');
+    assert.equal(edited.source_no, '7');
+    assert.equal(edited.required_count, 3);
+    assert.equal(edited.references[0].source_text, '수정된 모범답안');
+    assert.equal(edited.keyword_groups.length, 3);
+    assert.equal(edited.keyword_groups[0].is_required, true);
+    assert.deepEqual(edited.keyword_groups[1].keywords, ['다라', '마바']);
+    assert.equal(edited.is_gradable, true);
+
+    // 수정한 기준이 실제 채점에 반영된다.
+    const { results } = await call('POST', '/submit', {
+      mode: 'practice',
+      answers: [{ question_id: created.question_id, answer_text: '필수키 와 다라 를 적는다' }],
+    });
+    assert.equal(results[0].credited_count, 2);
+    assert.equal(results[0].missing_required, 0);
+
+    // 일반 서술형으로 되돌리면 flat 키워드 한 묶음이 된다.
+    const flat = await call('PUT', `/questions/${created.question_id}`, {
+      questionText: '수정된 문제',
+      requiredCount: null,
+      sourceText: '모범답안',
+      groups: [{ keywords: ['키워드1', '키워드2'] }],
+    });
+    assert.equal(flat.required_count, null);
+    assert.equal(flat.keyword_groups.length, 1);
+    assert.equal(flat.keyword_groups[0].is_flat, true);
+    assert.deepEqual(flat.keyword_groups[0].keywords, ['키워드1', '키워드2']);
+
+    await call('DELETE', `/packs/${pack.pack_id}`);
+    await call('POST', '/packs/1/activate');
+  });
+
   await t.test('팩을 교체하면 출제 대상이 바뀐다', async () => {
     const other = await call('POST', '/packs', { name: '대기환경기사', activate: true });
     const quiz = await fetch(`${BASE}/quiz?count=1`).then((r) => r.json());
