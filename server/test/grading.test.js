@@ -128,3 +128,22 @@ test('일부 번호만 답해도 그 번호만 잡는다', () => {
   assert.equal(segments.size, 2);
   assert.equal(segments.has(1), false);
 });
+
+/* ── 출제 후보창 크기 ─────────────────────────────────────── */
+
+test('후보창은 풀이 작아도 직전 회차가 빠지도록 좁아진다', async () => {
+  const { serveWindowForTest } = await import('../src/repo.js');
+
+  // 풀이 넉넉하면 출제 수의 3배를 그대로 쓴다.
+  assert.equal(serveWindowForTest(10, 130), 30);
+  assert.equal(serveWindowForTest(5, 60), 15);
+
+  // 풀이 작으면 (풀 - 출제 수)로 좁혀 직전 회차를 후보에서 뺀다.
+  assert.equal(serveWindowForTest(10, 20), 10);
+  assert.equal(serveWindowForTest(10, 25), 15);
+  assert.equal(serveWindowForTest(5, 12), 7);
+
+  // 풀이 출제 수 이하라면 더 좁힐 수 없으므로 출제 수만큼 둔다.
+  assert.equal(serveWindowForTest(10, 10), 10);
+  assert.equal(serveWindowForTest(10, 3), 10);
+});

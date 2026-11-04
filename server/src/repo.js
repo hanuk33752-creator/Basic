@@ -88,6 +88,17 @@ export function getQuestion(questionId) {
 const SERVE_ORDER = 'ORDER BY (last_served_at IS NULL) DESC, last_served_at ASC, RANDOM()';
 const WINDOW_MULTIPLIER = 3;
 
+/**
+ * 후보 무리의 크기.
+ * 기본은 출제 수의 3배지만, 그 값이 풀 전체를 덮으면 회전이 무의미해진다.
+ * 적어도 직전 회차가 후보에서 빠지도록 (풀 크기 - 출제 수) 를 넘지 않게 한다.
+ */
+function serveWindow(count, poolSize) {
+  return Math.max(count, Math.min(count * WINDOW_MULTIPLIER, poolSize - count));
+}
+
+export { serveWindow as serveWindowForTest };
+
 /** 채점 기준이 있는 문제만 대상으로 출제한다. */
 export function randomQuestions(packId, count) {
   const rows = all(
@@ -96,7 +107,7 @@ export function randomQuestions(packId, count) {
        ${SERVE_ORDER} LIMIT ?
      ) ORDER BY RANDOM() LIMIT ?`,
     packId,
-    count * WINDOW_MULTIPLIER,
+    serveWindow(count, countReady(packId)),
     count
   );
   return rows.map(hydrate);
@@ -127,7 +138,7 @@ export function randomWrongQuestions(packId, count, { period = 'all', minWrong =
      ) ORDER BY RANDOM() LIMIT ?`,
     packId,
     minWrong,
-    count * WINDOW_MULTIPLIER,
+    serveWindow(count, countWrongQuestions(packId, { period, minWrong })),
     count
   );
   return rows.map(hydrate);
@@ -176,7 +187,7 @@ export function randomUnsolvedTodayQuestions(packId, count) {
        ${SERVE_ORDER} LIMIT ?
      ) ORDER BY RANDOM() LIMIT ?`,
     packId,
-    count * WINDOW_MULTIPLIER,
+    serveWindow(count, todayProgress(packId).remaining),
     count
   );
   return rows.map(hydrate);
