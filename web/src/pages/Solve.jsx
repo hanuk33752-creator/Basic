@@ -5,7 +5,10 @@ import api from '../api.js';
 export default function Solve() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const count = Number(params.get('count')) || 1;
+  // count=all 은 조건에 맞는 문제를 한 사이클로 전부 푸는 모드다.
+  const rawCount = params.get('count');
+  const fullCycle = rawCount === 'all';
+  const count = fullCycle ? 'all' : Number(rawCount) || 1;
   const mode = params.get('mode') === 'exam' ? 'exam' : 'practice';
   const rawSource = params.get('source');
   const source = rawSource === 'notes' || rawSource === 'unsolved' ? rawSource : 'all';
@@ -39,6 +42,16 @@ export default function Solve() {
 
   async function submit() {
     if (answered === 0 && !confirm('작성한 답안이 없습니다. 그대로 제출할까요?')) return;
+    // 한 사이클은 문제가 많아 빈칸을 못 보고 내리기 쉽다. 남은 칸 수를 먼저 알려준다.
+    const blank = questions.length - answered;
+    if (
+      answered > 0 &&
+      blank > 0 &&
+      fullCycle &&
+      !confirm(`아직 ${blank}문제가 비어 있습니다. 그대로 제출할까요?`)
+    ) {
+      return;
+    }
     setStatus('submitting');
     setError(null);
     try {
@@ -48,7 +61,12 @@ export default function Solve() {
       }));
       const data = await api.submitAnswers(payload, mode);
       navigate('/result', {
-        state: { ...data, count, source, review: source === 'notes' ? { period, minWrong } : null },
+        state: {
+          ...data,
+          count,
+          source,
+          review: source === 'notes' ? { period, minWrong } : null,
+        },
         replace: true,
       });
     } catch (e) {
@@ -71,8 +89,10 @@ export default function Solve() {
         {source === 'notes' && <span className="mode-badge">오답 복습</span>}
         {source === 'unsolved' && <span className="mode-badge">오늘 안 푼 문제</span>}
         {source !== 'all' ? ' ' : ''}
+        {fullCycle && <span className="mode-badge">한 사이클 전부</span>}
+        {fullCycle ? ' ' : ''}
         {questions.length}문제 · 작성 {answered}/{questions.length}
-        {questions.length < count && ' · 조건에 맞는 문제가 부족해 있는 만큼만 출제했습니다.'}
+        {!fullCycle && questions.length < count && ' · 조건에 맞는 문제가 부족해 있는 만큼만 출제했습니다.'}
       </p>
       {mode === 'practice' && (
         <p className="muted" style={{ marginTop: -12, marginBottom: 16 }}>

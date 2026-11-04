@@ -6,13 +6,11 @@ import { isValidPeriod } from '../services/period.js';
 
 const router = Router();
 const ALLOWED_COUNTS = [1, 5, 10];
+/** count=all 로 한 사이클을 한번에 풀 때의 상한. 한 화면에 담기지 않을 만큼 많은 요구를 막는다. */
+const FULL_CYCLE_LIMIT = 200;
 
 /** 랜덤 출제. 채점 기준(키워드)은 응답에 포함하지 않는다. */
 router.get('/quiz', (req, res) => {
-  const count = Number(req.query.count) || 1;
-  if (!ALLOWED_COUNTS.includes(count)) {
-    return res.status(400).json({ error: '출제 개수는 1, 5, 10 중 하나여야 합니다.' });
-  }
   const pack = req.query.packId ? repo.getPack(Number(req.query.packId)) : repo.getActivePack();
   if (!pack) return res.status(400).json({ error: '활성 자격증 팩이 없습니다.' });
 
@@ -24,6 +22,31 @@ router.get('/quiz', (req, res) => {
   const minWrong = Math.max(1, Number(req.query.minWrong) || 1);
   if (source === 'notes' && !isValidPeriod(period)) {
     return res.status(400).json({ error: '지원하지 않는 기간 필터입니다.' });
+  }
+
+  // 조건에 맞는 문제 수. 채점 기준이 없는 문제는 애초에 대상에서 빠진다.
+  const available =
+    source === 'notes'
+      ? repo.countWrongQuestions(pack.pack_id, { period, minWrong })
+      : source === 'unsolved'
+        ? repo.todayProgress(pack.pack_id).remaining
+        : repo.countReady(pack.pack_id);
+
+  // count=all → 조건에 맞는 문제를 한 사이클로 전부 낸다.
+  const fullCycle = req.query.count === 'all';
+  let count;
+  if (fullCycle) {
+    if (available === 0) {
+      return res.status(400).json({ error: '조건에 맞는 문제가 없어 한 사이클을 만들 수 없습니다.' });
+    }
+    count = Math.min(available, FULL_CYCLE_LIMIT);
+  } else {
+    count = Number(req.query.count) || 1;
+    if (!ALLOWED_COUNTS.includes(count)) {
+      return res
+        .status(400)
+        .json({ error: '출제 개수는 1, 5, 10 또는 all(한 사이클 전부) 이어야 합니다.' });
+    }
   }
 
   const picked =
@@ -48,15 +71,10 @@ router.get('/quiz', (req, res) => {
   res.json({
     pack: { pack_id: pack.pack_id, name: pack.name },
     requested: count,
+    full_cycle: fullCycle,
     source,
     ...(source === 'notes' ? { period, min_wrong: minWrong } : null),
-    // 채점 기준이 없는 문제는 출제 대상에서 빠지므로 그 수도 함께 알려준다.
-    available:
-      source === 'notes'
-        ? repo.countWrongQuestions(pack.pack_id, { period, minWrong })
-        : source === 'unsolved'
-          ? repo.todayProgress(pack.pack_id).remaining
-          : repo.countReady(pack.pack_id),
+    available,
     questions,
   });
 });

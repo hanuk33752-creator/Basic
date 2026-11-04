@@ -19,6 +19,9 @@ export default function Result() {
 
   const { results, summary, mode = 'exam', count = results.length, review = null, source = 'all' } = state;
   const modeName = mode === 'exam' ? '시험 모드' : '연습 모드';
+  // count=all 로 푼 한 사이클은 '다음 사이클'로 이어진다. 개수는 그때 남은 만큼 다시 정해진다.
+  const fullCycle = count === 'all';
+  const countLabel = fullCycle ? '한 사이클 전부' : `${count}문제`;
   const nextQuizUrl = review
     ? `/solve?count=${count}&mode=${mode}&source=notes&period=${review.period}&minWrong=${review.minWrong}`
     : `/solve?count=${count}&mode=${mode}${source === 'unsolved' ? '&source=unsolved' : ''}`;
@@ -83,9 +86,9 @@ export default function Result() {
           className="btn primary push-right"
           onClick={() => navigate(nextQuizUrl, { replace: true })}
         >
-          새 문제 풀기 ({review ? '오답 복습 · ' : ''}
+          {fullCycle ? '다음 사이클 풀기' : '새 문제 풀기'} ({review ? '오답 복습 · ' : ''}
           {source === 'unsolved' ? '오늘 안 푼 문제 · ' : ''}
-          {modeName} · {count}문제)
+          {modeName} · {countLabel})
         </button>
       </div>
     </main>

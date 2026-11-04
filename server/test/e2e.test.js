@@ -487,6 +487,64 @@ test('전체 흐름: 팩 생성 → 문제 등록 → 출제 → 채점 → 오�
     await call('POST', '/packs/1/activate');
   });
 
+  await t.test('count=all 은 조건에 맞는 오답을 한 사이클로 전부 낸다', async () => {
+    const pack = await call('POST', '/packs', { name: '사이클테스트', activate: true });
+    for (let i = 1; i <= 12; i += 1) {
+      const q = await call('POST', '/questions', {
+        packId: pack.pack_id,
+        questionText: `사이클 문제 ${i}번`,
+        sourceNo: String(i),
+        requiredCount: 1,
+        sourceText: '참고자료',
+        groups: [{ label: `정답${i}`, keywords: [`정답${i}`] }],
+      });
+      // 앞 7개만 틀려서 오답노트에 쌓는다.
+      if (i <= 7) {
+        await call('POST', '/submit', {
+          mode: 'exam',
+          answers: [{ question_id: q.question_id, answer_text: '모르겠다' }],
+        });
+      }
+    }
+
+    const cycle = await call('GET', '/quiz?count=all&source=notes&period=all');
+    assert.equal(cycle.full_cycle, true);
+    assert.equal(cycle.available, 7);
+    assert.equal(cycle.requested, 7);
+    assert.equal(cycle.questions.length, 7, '조건에 맞는 오답이 한 번에 다 나온다');
+    assert.deepEqual(
+      cycle.questions.map((q) => q.source_no).sort((a, b) => Number(a) - Number(b)),
+      ['1', '2', '3', '4', '5', '6', '7']
+    );
+    // 채점 기준은 여전히 숨긴다.
+    assert.ok(cycle.questions.every((q) => q.keyword_groups === undefined));
+
+    // 한 번씩만 틀렸으니 '2회 이상' 조건에는 아무것도 안 걸린다 → 사이클을 만들 수 없다.
+    const empty = await fetch(`${BASE}/quiz?count=all&source=notes&minWrong=2`);
+    assert.equal(empty.status, 400);
+
+    // 1번을 한 번 더 틀리면 그 조건의 사이클은 1문제가 된다.
+    const first = cycle.questions.find((q) => q.source_no === '1');
+    await call('POST', '/submit', {
+      mode: 'exam',
+      answers: [{ question_id: first.question_id, answer_text: '또 모르겠다' }],
+    });
+    const narrowed = await call('GET', '/quiz?count=all&source=notes&minWrong=2');
+    assert.equal(narrowed.available, 1);
+    assert.equal(narrowed.questions.length, 1);
+    assert.equal(narrowed.questions[0].source_no, '1');
+
+    // 일반 출제와 오늘 안 푼 문제에도 똑같이 쓸 수 있다.
+    const allCycle = await call('GET', '/quiz?count=all');
+    assert.equal(allCycle.questions.length, 12);
+
+    const bad = await fetch(`${BASE}/quiz?count=7`);
+    assert.equal(bad.status, 400, '1·5·10 이외의 숫자는 여전히 거부한다');
+
+    await call('DELETE', `/packs/${pack.pack_id}`);
+    await call('POST', '/packs/1/activate');
+  });
+
   await t.test('연습 모드로 푼 복습은 오답노트에 쌓이지 않는다', async () => {
     const pack = await call('POST', '/packs', { name: '복습연습', activate: true });
     const q = await call('POST', '/questions', {

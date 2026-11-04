@@ -60,6 +60,9 @@ export default function Review() {
 
   const available = counts[minWrong] ?? 0;
 
+  const solveUrl = (count) =>
+    `/solve?count=${count}&mode=${mode}&source=notes&period=${period}&minWrong=${minWrong}`;
+
   return (
     <main className="page">
       <h1>오답 다시 풀기</h1>
@@ -133,17 +136,27 @@ export default function Review() {
                 key={n}
                 className="choice"
                 disabled={available === 0}
-                onClick={() =>
-                  navigate(`/solve?count=${n}&mode=${mode}&source=notes&period=${period}&minWrong=${minWrong}`)
-                }
+                onClick={() => navigate(solveUrl(n))}
               >
                 <span className="big">{n}</span>
                 <span className="label">{n}문제</span>
               </button>
             ))}
+            {/* 조건에 맞는 오답을 한 번에 다 푸는 모드. 당일 오답을 그날 안에 털 때 쓴다. */}
+            <button
+              className="choice full-cycle"
+              disabled={available === 0}
+              onClick={() => navigate(solveUrl('all'))}
+            >
+              <span className="big">{available}</span>
+              <span className="label">한 사이클 전부</span>
+            </button>
           </div>
           <p className="muted" style={{ marginTop: 14 }}>
             조건에 맞는 문제 {available}개 중에서 뽑습니다. 더 많이 고르면 있는 만큼만 출제됩니다.
+            <br />
+            <strong>한 사이클 전부</strong>를 고르면 {available}문제가 한 화면에 쭉 나오고, 한 번에 제출해
+            채점받습니다. 조건에 맞는 오답을 빠짐없이 털 때 쓰세요.
           </p>
         </>
       )}

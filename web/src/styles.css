@@ -85,6 +85,9 @@ body {
 .choice .big { display: block; font-size: 26px; font-weight: 700; color: var(--primary); }
 .choice .label { font-size: 13px; color: var(--muted); }
 .choice:disabled { opacity: 0.45; cursor: not-allowed; }
+/* 한 사이클 전부: 개수 선택지와 성격이 달라 테두리로 구분한다. */
+.choice.full-cycle { border-color: var(--primary); border-style: dashed; }
+.choice.full-cycle .label { color: var(--primary); font-weight: 600; }
 
 input[type='text'], input[type='number'], textarea, select {
   width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
